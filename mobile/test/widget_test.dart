@@ -4,10 +4,10 @@ import 'package:hermes_super_ai/main.dart';
 
 void main() {
   group('HermesAppState RBAC & State Tests', () {
-    test('Initial state is unauthenticated with default pro_creator role', () {
+    test('Initial state is authenticated with default superadmin role', () {
       final state = HermesAppState();
-      expect(state.isAuthenticated, isFalse);
-      expect(state.activeRoleSlug, 'pro_creator');
+      expect(state.isAuthenticated, isTrue);
+      expect(state.activeRoleSlug, 'superadmin');
       expect(state.currentRole.canSwitchAgents, isTrue);
     });
 

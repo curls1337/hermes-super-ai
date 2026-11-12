@@ -14,8 +14,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailCtrl = TextEditingController(text: 'pro@hermes.ai');
-  final _passCtrl = TextEditingController(text: 'password123');
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
   bool _obscurePass = true;
   bool _loading = false;
 
@@ -206,50 +206,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
-                Text(
-                  'QUICK DEMO ROLE LAUNCHER (1-KLIK)',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.1,
-                    color: isDark
-                        ? VisionTokens.textSecondary
-                        : VisionTokens.textDarkSecondary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: HermesAppState.roles.values.map((r) {
-                    return ActionChip(
-                      avatar: null,
-                      label: Text(
-                        r.badge,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      backgroundColor: isDark
-                          ? VisionTokens.bgGraphiteSurface
-                          : Colors.white,
-                      side: BorderSide(
-                        color: VisionTokens.accentCyan.withOpacity(0.35),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      onPressed: () {
-                        HapticFeedback.selectionClick();
-                        widget.appState.loginWithRole(r.slug);
-                      },
-                    );
-                  }).toList(),
-                ),
+                const SizedBox(height: 16),
               ],
             ),
           ),

@@ -132,7 +132,32 @@ class MainShellScreen extends StatelessWidget {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 14),
-            child: RoleSwitcherPill(appState: appState),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: VisionTokens.accentCyan.withOpacity(0.14),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: VisionTokens.accentCyan.withOpacity(0.4),
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.circle, color: Color(0xFF10B981), size: 8),
+                  SizedBox(width: 6),
+                  Text(
+                    'LIVE AI',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
+                      color: VisionTokens.accentCyan,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

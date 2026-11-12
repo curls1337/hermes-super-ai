@@ -213,11 +213,11 @@ class HermesAppState extends ChangeNotifier {
 
   final HermesApiClient apiClient = HermesApiClient();
 
-  bool isAuthenticated = false;
+  bool isAuthenticated = true;
   bool isDarkTheme = true;
   int currentTab = 0;
-  String activeRoleSlug = 'pro_creator';
-  String activeAgentId = 'tech_architect';
+  String activeRoleSlug = 'superadmin';
+  String activeAgentId = 'general';
   bool webSearchEnabled = true;
 
   // Studio
@@ -384,7 +384,7 @@ class HermesAppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void sendChatMessage(String text) {
+  Future<void> sendChatMessage(String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
 
@@ -406,26 +406,42 @@ class HermesAppState extends ChangeNotifier {
       agentId: agent.id,
       content: '',
       timestamp: 'Baru saja',
-      citations: webSearchEnabled
-          ? ['developer.apple.com/visionos', 'hermes-agent.nousresearch.com']
-          : [],
+      citations: webSearchEnabled ? ['Hermes Live AI Gateway'] : [],
     );
     messages.add(reply);
     notifyListeners();
 
-    final fullText =
-        'Halo! Sebagai ${agent.name}, saya telah menganalisis "${trimmed.length > 50 ? trimmed.substring(0, 50) : trimmed}". Semua fitur Spatial Glass, Image Studio, dan Remotion Video Lab siap dieksekusi.';
-    final words = fullText.split(' ');
-    int idx = 0;
-    Timer.periodic(const Duration(milliseconds: 45), (timer) {
-      if (idx < words.length) {
-        reply.content += (idx == 0 ? '' : ' ') + words[idx];
-        idx++;
+    final historyPayload = messages
+        .where((m) => m.content.trim().isNotEmpty)
+        .map((m) => {
+              'role': m.isUser ? 'user' : 'assistant',
+              'content': m.content,
+            })
+        .toList();
+
+    bool receivedAny = false;
+    String? errMessage;
+
+    await apiClient.streamChat(
+      messages: historyPayload,
+      agentPersona: agent.id,
+      webSearchEnabled: webSearchEnabled,
+      onDelta: (delta) {
+        receivedAny = true;
+        reply.content += delta;
         notifyListeners();
-      } else {
-        timer.cancel();
-      }
-    });
+      },
+      onError: (err) {
+        errMessage = err;
+      },
+    );
+
+    if (!receivedAny && reply.content.isEmpty) {
+      reply.content = errMessage != null
+          ? '⚠️ Tidak dapat terhubung ke server Hermes ($errMessage). Periksa koneksi internet atau URL Server di tab Vault.'
+          : '⚠️ Tidak ada respons dari server. Coba kirim ulang.';
+      notifyListeners();
+    }
   }
 
   void setRatio(String r) {
@@ -433,26 +449,30 @@ class HermesAppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void generateImage(String prompt) {
+  Future<void> generateImage(String prompt) async {
     if (prompt.trim().isEmpty || isGeneratingImage) return;
     isGeneratingImage = true;
     notifyListeners();
 
-    Timer(const Duration(seconds: 2), () {
-      isGeneratingImage = false;
-      final seed = 100000 + (DateTime.now().millisecond * 713) % 899999;
-      const sampleUrl =
-          'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80';
+    final res = await apiClient.generateImage(prompt.trim(), selectedRatio);
+    isGeneratingImage = false;
+
+    if (res['success'] == true && res['data'] != null) {
+      final d = res['data'] as Map<String, dynamic>;
+      final rawUrl = (d['imageUrl'] ?? '').toString();
+      final fullUrl = apiClient.resolveMediaUrl(rawUrl);
+      final seed = (d['seed'] is int) ? d['seed'] as int : 1024;
+
       images.insert(
         0,
         GeneratedImageItem(
-          id: 'img_${DateTime.now().millisecondsSinceEpoch}',
+          id: (d['id'] ?? 'img_${DateTime.now().millisecondsSinceEpoch}').toString(),
           prompt: prompt.trim(),
-          ratio: selectedRatio,
-          style: 'VisionOS Spatial Glass',
-          resolution: selectedRatio == '16:9' ? '1280x720' : '1024x1024',
+          ratio: (d['aspectRatio'] ?? selectedRatio).toString(),
+          style: 'VisionOS Spatial AI',
+          resolution: (d['resolution'] ?? '1024x1024').toString(),
           seed: seed,
-          url: sampleUrl,
+          url: fullUrl,
         ),
       );
       vaultItems.insert(
@@ -462,11 +482,11 @@ class HermesAppState extends ChangeNotifier {
           title: prompt.trim(),
           type: 'image',
           detail: 'Aspect $selectedRatio • Seed #$seed',
-          thumbUrl: sampleUrl,
+          thumbUrl: fullUrl,
         ),
       );
-      notifyListeners();
-    });
+    }
+    notifyListeners();
   }
 
   void addStoryboardBeat(String title, String speaker, String script) {
@@ -480,55 +500,72 @@ class HermesAppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void startVideoRender() {
+  Future<void> startVideoRender() async {
     if (isRenderingVideo) return;
     isRenderingVideo = true;
-    videoRenderProgress = 0.05;
+    videoRenderProgress = 0.1;
     notifyListeners();
 
-    Timer.periodic(const Duration(milliseconds: 280), (timer) {
-      videoRenderProgress += 0.14;
-      if (videoRenderProgress >= 1.0) {
-        videoRenderProgress = 1.0;
+    final scriptText = beats.map((b) => b.script).join(' ');
+    final startRes = await apiClient.renderVideo('Hermes Spatial Reel', scriptText);
+    if (startRes['success'] != true || startRes['data']?['jobId'] == null) {
+      isRenderingVideo = false;
+      videoRenderProgress = 0.0;
+      notifyListeners();
+      return;
+    }
+
+    final jobId = startRes['data']['jobId'].toString();
+    Timer.periodic(const Duration(seconds: 1), (timer) async {
+      final stRes = await apiClient.checkVideoStatus(jobId);
+      final d = stRes['data'] as Map<String, dynamic>?;
+      if (d == null) return;
+
+      final pct = (d['progressPct'] is num) ? (d['progressPct'] as num).toDouble() / 100.0 : 0.5;
+      videoRenderProgress = pct.clamp(0.0, 1.0);
+
+      if (d['status'] == 'completed') {
         isRenderingVideo = false;
+        videoRenderProgress = 1.0;
         timer.cancel();
         vaultItems.insert(
           0,
           VaultMediaItem(
             id: 'vlt_vid_${DateTime.now().millisecondsSinceEpoch}',
-            title: 'Hermes Spatial Reel (Remotion MP4)',
+            title: (d['title'] ?? 'Hermes Spatial Reel').toString(),
             type: 'video',
-            detail: '${currentRole.videoResolution} • 30s • Dual-Speaker',
+            detail: '${currentRole.videoResolution} • MP4 Neural TTS',
             thumbUrl:
                 'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?w=400&q=80',
             isFavorite: true,
           ),
         );
+      } else if (d['status'] == 'failed') {
+        isRenderingVideo = false;
+        timer.cancel();
       }
       notifyListeners();
     });
   }
 
-  void toggleVoiceState() {
+  Future<void> toggleVoiceState() async {
     if (voiceState == 'idle') {
-      voiceState = 'listening';
-      voiceTranscript = 'Mendengarkan suara Anda... (VAD 750ms Aktif)';
+      voiceState = 'thinking';
+      voiceTranscript = 'Menghubungi Hermes Voice AI...';
       notifyListeners();
-      Timer(const Duration(seconds: 2), () {
-        if (voiceState == 'listening') {
-          voiceState = 'thinking';
-          voiceTranscript = 'Memproses konteks multimodal...';
-          notifyListeners();
-          Timer(const Duration(milliseconds: 1300), () {
-            if (voiceState == 'thinking') {
-              voiceState = 'speaking';
-              voiceTranscript =
-                  'Hermes Super AI siap membantu merender video Remotion 60fps atau menganalisis dokumen Anda.';
-              notifyListeners();
-            }
-          });
-        }
-      });
+
+      final res = await apiClient.converseVoice(
+        'Halo Hermes, perkenalkan kemampuanmu secara singkat.',
+        activeAgentId,
+      );
+      if (res['success'] == true && res['data'] != null) {
+        voiceState = 'speaking';
+        voiceTranscript = (res['data']['replyText'] ?? '').toString();
+      } else {
+        voiceState = 'idle';
+        voiceTranscript = 'Gagal terhubung ke layanan suara Hermes.';
+      }
+      notifyListeners();
     } else {
       voiceState = 'idle';
       voiceTranscript = 'Sesi suara dijeda. Ketuk mic untuk melanjutkan.';
