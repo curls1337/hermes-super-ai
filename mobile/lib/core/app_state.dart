@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import '../services/api_client.dart';
 
 class RoleProfile {
@@ -229,9 +231,13 @@ class HermesAppState extends ChangeNotifier {
   double videoRenderProgress = 0.0;
 
   // Voice Mode
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  final SpeechToText _speech = SpeechToText();
+  bool _speechReady = false;
+  bool isVoiceMuted = false;
   String voiceState = 'idle'; // idle, listening, thinking, speaking
   String voiceTranscript =
-      'Ketuk tombol mikrofon di bawah untuk memulai percakapan suara spasial.';
+      'Ketuk tombol mikrofon di bawah untuk berbicara langsung dengan Hermes.';
 
   // Vault
   String vaultFilter = 'all';
@@ -548,29 +554,134 @@ class HermesAppState extends ChangeNotifier {
     });
   }
 
-  Future<void> toggleVoiceState() async {
-    if (voiceState == 'idle') {
-      voiceState = 'thinking';
-      voiceTranscript = 'Menghubungi Hermes Voice AI...';
+  Future<void> setVoiceMuted(bool muted) async {
+    isVoiceMuted = muted;
+    if (muted) {
+      await _audioPlayer.setVolume(0.0);
+    } else {
+      await _audioPlayer.setVolume(1.0);
+    }
+    notifyListeners();
+  }
+
+  Future<void> sendVoiceQuery(String text) async {
+    final clean = text.trim();
+    if (clean.isEmpty) {
+      voiceState = 'idle';
+      notifyListeners();
+      return;
+    }
+
+    voiceState = 'thinking';
+    voiceTranscript = 'Anda: "$clean"\nMenghubungi Hermes Voice AI...';
+    notifyListeners();
+
+    final res = await apiClient.converseVoice(clean, activeAgentId);
+    if (res['success'] == true && res['data'] != null) {
+      final d = res['data'] as Map<String, dynamic>;
+      final replyText = (d['replyText'] ?? '').toString();
+      final relAudio = (d['audioUrl'] ?? '').toString();
+      final fullAudioUrl = apiClient.resolveMediaUrl(relAudio);
+
+      voiceState = 'speaking';
+      voiceTranscript = replyText.isNotEmpty ? replyText : 'Menjawab...';
       notifyListeners();
 
-      final res = await apiClient.converseVoice(
-        'Halo Hermes, perkenalkan kemampuanmu secara singkat.',
-        activeAgentId,
-      );
-      if (res['success'] == true && res['data'] != null) {
-        voiceState = 'speaking';
-        voiceTranscript = (res['data']['replyText'] ?? '').toString();
+      if (fullAudioUrl.isNotEmpty) {
+        try {
+          await _audioPlayer.stop();
+          await _audioPlayer.setVolume(isVoiceMuted ? 0.0 : 1.0);
+          _audioPlayer.onPlayerComplete.first.then((_) {
+            if (voiceState == 'speaking') {
+              voiceState = 'idle';
+              notifyListeners();
+            }
+          });
+          await _audioPlayer.play(UrlSource(fullAudioUrl));
+        } catch (e) {
+          voiceTranscript = '$replyText\n(Audio gagal diputar: $e)';
+          voiceState = 'idle';
+          notifyListeners();
+        }
       } else {
         voiceState = 'idle';
-        voiceTranscript = 'Gagal terhubung ke layanan suara Hermes.';
+        notifyListeners();
       }
-      notifyListeners();
     } else {
+      voiceState = 'idle';
+      voiceTranscript = 'Gagal terhubung ke layanan suara Hermes.';
+      notifyListeners();
+    }
+  }
+
+  Future<void> toggleVoiceState() async {
+    if (voiceState == 'idle') {
+      try {
+        if (!_speechReady) {
+          _speechReady = await _speech.initialize(
+            onStatus: (status) {
+              if ((status == 'done' || status == 'notListening') &&
+                  voiceState == 'listening') {
+                // Handled in listen result
+              }
+            },
+            onError: (err) {
+              voiceState = 'idle';
+              voiceTranscript =
+                  'Mikrofon tidak tersedia (${err.errorMsg}). Ketik pertanyaan di kolom bawah untuk bicara.';
+              notifyListeners();
+            },
+          );
+        }
+
+        if (_speechReady) {
+          voiceState = 'listening';
+          voiceTranscript = 'Mendengarkan suara Anda... Silakan bicara.';
+          notifyListeners();
+
+          String lastWords = '';
+          await _speech.listen(
+            localeId: 'id_ID',
+            listenFor: const Duration(seconds: 20),
+            pauseFor: const Duration(seconds: 2),
+            onResult: (result) {
+              lastWords = result.recognizedWords;
+              if (lastWords.isNotEmpty) {
+                voiceTranscript = '"$lastWords"';
+                notifyListeners();
+              }
+              if (result.finalResult && lastWords.trim().isNotEmpty) {
+                _speech.stop();
+                sendVoiceQuery(lastWords);
+              }
+            },
+          );
+        } else {
+          voiceState = 'idle';
+          voiceTranscript =
+              'Izin mikrofon/speech tidak aktif di iOS. Ketik pertanyaan di kolom bawah untuk bicara.';
+          notifyListeners();
+        }
+      } catch (e) {
+        voiceState = 'idle';
+        voiceTranscript =
+            'Mikrofon tidak tersedia ($e). Ketik pertanyaan di kolom bawah.';
+        notifyListeners();
+      }
+    } else {
+      await _speech.stop();
+      await _audioPlayer.stop();
       voiceState = 'idle';
       voiceTranscript = 'Sesi suara dijeda. Ketuk mic untuk melanjutkan.';
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    _speech.stop();
+    super.dispose();
   }
 
   void setVaultFilter(String filter) {

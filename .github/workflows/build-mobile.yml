@@ -48,8 +48,11 @@ jobs:
             cp /tmp/custom_src/pubspec.yaml pubspec.yaml
           fi
           
-          # Inject Commercial App Name into Android Manifest
+          # Inject Commercial App Name & Mic Permission into Android Manifest
           sed -i 's/android:label="[a-zA-Z0-9_ ]*"/android:label="Hermes Super AI"/' android/app/src/main/AndroidManifest.xml || true
+          if ! grep -q "android.permission.RECORD_AUDIO" android/app/src/main/AndroidManifest.xml; then
+            sed -i '/<manifest/a \    <uses-permission android:name="android.permission.RECORD_AUDIO" />' android/app/src/main/AndroidManifest.xml
+          fi
           
           flutter pub get
 
@@ -97,8 +100,10 @@ jobs:
             cp /tmp/custom_src/pubspec.yaml pubspec.yaml
           fi
           
-          # Inject Commercial App Display Name into iOS Info.plist
+          # Inject Commercial App Display Name & Voice Permissions into iOS Info.plist
           sed -i '' 's/<string>$(PRODUCT_NAME)<\/string>/<string>Hermes Super AI<\/string>/g' ios/Runner/Info.plist || true
+          /usr/libexec/PlistBuddy -c "Set :NSMicrophoneUsageDescription 'Digunakan untuk percakapan suara dua arah dengan Hermes Super AI.'" ios/Runner/Info.plist || /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string 'Digunakan untuk percakapan suara dua arah dengan Hermes Super AI.'" ios/Runner/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :NSSpeechRecognitionUsageDescription 'Digunakan untuk mengenali ucapan Anda secara real-time di Voice Mode.'" ios/Runner/Info.plist || /usr/libexec/PlistBuddy -c "Add :NSSpeechRecognitionUsageDescription string 'Digunakan untuk mengenali ucapan Anda secara real-time di Voice Mode.'" ios/Runner/Info.plist
           
           flutter pub get
 

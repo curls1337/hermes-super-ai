@@ -15,7 +15,14 @@ class VoiceModeScreen extends StatefulWidget {
 }
 
 class _VoiceModeScreenState extends State<VoiceModeScreen> {
+  final _inputCtrl = TextEditingController();
   bool _isMuted = false;
+
+  @override
+  void dispose() {
+    _inputCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -131,6 +138,58 @@ class _VoiceModeScreenState extends State<VoiceModeScreen> {
                       ),
                     ),
                     const SizedBox(height: 18),
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withOpacity(0.06)
+                            : Colors.black.withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isDark ? Colors.white12 : Colors.black12,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _inputCtrl,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Bicara lewat mic atau ketik di sini...',
+                                hintStyle: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? Colors.white38 : Colors.black38,
+                                ),
+                                border: InputBorder.none,
+                                isDense: true,
+                              ),
+                              onSubmitted: (val) {
+                                if (val.trim().isNotEmpty) {
+                                  _inputCtrl.clear();
+                                  appState.sendVoiceQuery(val.trim());
+                                }
+                              },
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.send_rounded, size: 18, color: VisionTokens.accentCyan),
+                            onPressed: () {
+                              final text = _inputCtrl.text.trim();
+                              if (text.isNotEmpty) {
+                                _inputCtrl.clear();
+                                appState.sendVoiceQuery(text);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -145,6 +204,7 @@ class _VoiceModeScreenState extends State<VoiceModeScreen> {
                           onTap: () {
                             HapticFeedback.selectionClick();
                             setState(() => _isMuted = !_isMuted);
+                            appState.setVoiceMuted(_isMuted);
                           },
                         ),
                         const SizedBox(width: 20),
