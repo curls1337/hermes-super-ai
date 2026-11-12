@@ -15,8 +15,15 @@ class ImageStudioScreen extends StatefulWidget {
 
 class _ImageStudioScreenState extends State<ImageStudioScreen> {
   final _promptCtrl = TextEditingController(
-    text: 'Holographic AI sphere floating in graphite frost glass, VisionOS',
+    text: 'kucing astronot di planet mars dengan helm kaca bercahaya neon',
   );
+
+  final List<String> _quickIdeas = [
+    '🐱 Kucing astronot neon di Mars',
+    '🏰 Istana kaca melayang di awan',
+    '🏎️ Mobil balap cyberpunk malam hari',
+    '☕ Kedai kopi cozy di tengah hutan salju',
+  ];
 
   void _openLightbox(GeneratedImageItem item) {
     showDialog(
@@ -127,7 +134,34 @@ class _ImageStudioScreenState extends State<ImageStudioScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 36,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _quickIdeas.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, idx) {
+              final idea = _quickIdeas[idx];
+              return ActionChip(
+                label: Text(idea, style: const TextStyle(fontSize: 11)),
+                backgroundColor: isDark
+                    ? Colors.white.withOpacity(0.08)
+                    : Colors.black.withOpacity(0.05),
+                side: BorderSide(
+                  color: VisionTokens.accentCyan.withOpacity(0.3),
+                ),
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    _promptCtrl.text = idea.substring(idea.indexOf(' ') + 1);
+                  });
+                },
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 10),
         SpatialGlassCard(
           isDark: isDark,
           child: Column(

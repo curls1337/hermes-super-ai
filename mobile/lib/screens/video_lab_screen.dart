@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:video_player/video_player.dart';
 import '../core/app_state.dart';
 import '../core/tokens.dart';
 import '../widgets/spatial_glass_card.dart';
@@ -24,12 +25,29 @@ class _VideoLabScreenState extends State<VideoLabScreen> {
   bool _isPlaying = false;
   double _scrubProgress = 0.35;
   Timer? _playTimer;
+  VideoPlayerController? _videoPlayerController;
+  String? _loadedVideoUrl;
 
   @override
   void dispose() {
     _playTimer?.cancel();
     _storyCtrl.dispose();
+    _videoPlayerController?.dispose();
     super.dispose();
+  }
+
+  void _checkAndLoadRealVideo() {
+    final url = widget.appState.lastRenderedVideoUrl;
+    if (url != null && url.isNotEmpty && url != _loadedVideoUrl) {
+      _loadedVideoUrl = url;
+      _videoPlayerController?.dispose();
+      _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(url))
+        ..initialize().then((_) {
+          if (mounted) setState(() {});
+          _videoPlayerController?.play();
+          _videoPlayerController?.setLooping(true);
+        });
+    }
   }
 
   void _togglePlay() {
@@ -168,12 +186,18 @@ class _VideoLabScreenState extends State<VideoLabScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _checkAndLoadRealVideo();
     final isDark = widget.appState.isDarkTheme;
     final policy = widget.appState.currentRole;
     const mediums = ['WebGL Spatial', 'Editorial 60fps', 'Cinema Noir'];
     const voices = [
       'Fola & Brio (Dual-Speaker)',
       'Ardi & Gadis (ID Neural)',
+    ];
+    const quickScripts = [
+      'Selamat datang di masa depan kecerdasan buatan bersama Hermes Super AI.',
+      'Tiga tips produktif setiap pagi: rencanakan prioritas, fokus 25 menit, dan evaluasi hasil.',
+      'Review singkat iPhone 16 Pro dengan layar Titanium dan kecerdasan spasial Apple.',
     ];
 
     return ListView(
@@ -225,16 +249,116 @@ class _VideoLabScreenState extends State<VideoLabScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
 
-        // Remotion Canvas Simulated Player Card
+        // Easy Video Prompt Input Card
         SpatialGlassCard(
           isDark: isDark,
           padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
+              Text(
+                'Tulis Topik atau Naskah Video',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : VisionTokens.textDarkPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _storyCtrl,
+                maxLines: 3,
+                style: TextStyle(
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontSize: 13,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Contoh: Jelaskan 3 manfaat AI untuk bisnis modern...',
+                  filled: true,
+                  fillColor: isDark
+                      ? Colors.white.withOpacity(0.06)
+                      : Colors.black.withOpacity(0.04),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 32,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: quickScripts.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 6),
+                  itemBuilder: (_, idx) {
+                    return ActionChip(
+                      label: Text('Ide ${idx + 1}', style: const TextStyle(fontSize: 11)),
+                      onPressed: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _storyCtrl.text = quickScripts[idx]);
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 44,
+                child: ElevatedButton.icon(
+                  onPressed: widget.appState.isRenderingVideo
+                      ? null
+                      : () {
+                          HapticFeedback.mediumImpact();
+                          widget.appState.startVideoRender(customScript: _storyCtrl.text);
+                        },
+                  icon: const Icon(Icons.movie_creation_rounded, size: 18),
+                  label: Text(
+                    widget.appState.isRenderingVideo
+                        ? 'Merender Video MP4...'
+                        : 'Buat Video MP4 Sekarang',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: VisionTokens.accentPurple,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // Remotion Canvas / Real Video Player Card
+        SpatialGlassCard(
+          isDark: isDark,
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_videoPlayerController != null && _videoPlayerController!.value.isInitialized)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: AspectRatio(
+                    aspectRatio: _videoPlayerController!.value.aspectRatio,
+                    child: Stack(
+                      alignment: Alignment.bottomCenter,
+                      children: [
+                        VideoPlayer(_videoPlayerController!),
+                        VideoProgressIndicator(_videoPlayerController!, allowScrubbing: true),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Container(
                 height: 190,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),

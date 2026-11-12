@@ -229,6 +229,7 @@ class HermesAppState extends ChangeNotifier {
   // Video Lab
   bool isRenderingVideo = false;
   double videoRenderProgress = 0.0;
+  String? lastRenderedVideoUrl;
 
   // Voice Mode
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -506,14 +507,18 @@ class HermesAppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> startVideoRender() async {
+  Future<void> startVideoRender({String? customScript}) async {
     if (isRenderingVideo) return;
     isRenderingVideo = true;
     videoRenderProgress = 0.1;
+    lastRenderedVideoUrl = null;
     notifyListeners();
 
-    final scriptText = beats.map((b) => b.script).join(' ');
-    final startRes = await apiClient.renderVideo('Hermes Spatial Reel', scriptText);
+    final scriptText = (customScript != null && customScript.trim().isNotEmpty)
+        ? customScript.trim()
+        : beats.map((b) => b.script).join(' ');
+    final titleText = scriptText.length > 42 ? scriptText.substring(0, 42) : scriptText;
+    final startRes = await apiClient.renderVideo(titleText, scriptText);
     if (startRes['success'] != true || startRes['data']?['jobId'] == null) {
       isRenderingVideo = false;
       videoRenderProgress = 0.0;
@@ -533,6 +538,8 @@ class HermesAppState extends ChangeNotifier {
       if (d['status'] == 'completed') {
         isRenderingVideo = false;
         videoRenderProgress = 1.0;
+        final rawVideo = (d['outputVideoUrl'] ?? '').toString();
+        lastRenderedVideoUrl = apiClient.resolveMediaUrl(rawVideo);
         timer.cancel();
         vaultItems.insert(
           0,
