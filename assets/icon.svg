@@ -1,0 +1,189 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradients -->
+    <radialGradient id="bgGlow" cx="50%" cy="25%" r="85%" fx="30%" fy="15%">
+      <stop offset="0%" stop-color="#1E293B" />
+      <stop offset="35%" stop-color="#0F172A" />
+      <stop offset="70%" stop-color="#090D16" />
+      <stop offset="100%" stop-color="#030712" />
+    </radialGradient>
+
+    <!-- Apple Squircle Corner Clip -->
+    <clipPath id="squircleClip">
+      <rect x="0" y="0" width="512" height="512" rx="115" ry="115" />
+    </clipPath>
+
+    <!-- Specular Top Rim Gradient -->
+    <linearGradient id="specularRim" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.5" />
+      <stop offset="25%" stop-color="#94A3B8" stop-opacity="0.25" />
+      <stop offset="50%" stop-color="#38BDF8" stop-opacity="0.15" />
+      <stop offset="80%" stop-color="#1E293B" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.2" />
+    </linearGradient>
+
+    <!-- Core Wing Gradients -->
+    <linearGradient id="wingLeftGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E2E8F0" stop-opacity="0.95" />
+      <stop offset="40%" stop-color="#38BDF8" stop-opacity="0.85" />
+      <stop offset="80%" stop-color="#6366F1" stop-opacity="0.75" />
+      <stop offset="100%" stop-color="#0EA5E9" stop-opacity="0.2" />
+    </linearGradient>
+
+    <linearGradient id="wingRightGrad" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.95" />
+      <stop offset="40%" stop-color="#818CF8" stop-opacity="0.85" />
+      <stop offset="80%" stop-color="#C084FC" stop-opacity="0.75" />
+      <stop offset="100%" stop-color="#6366F1" stop-opacity="0.2" />
+    </linearGradient>
+
+    <!-- Glass Prism Facets -->
+    <linearGradient id="glassFacetTop" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9" />
+      <stop offset="50%" stop-color="#BAE6FD" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#38BDF8" stop-opacity="0.15" />
+    </linearGradient>
+
+    <linearGradient id="glassFacetBottom" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#0284C7" stop-opacity="0.2" />
+      <stop offset="70%" stop-color="#4F46E5" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#312E81" stop-opacity="0.9" />
+    </linearGradient>
+
+    <linearGradient id="coreIrisGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F8FAFC" />
+      <stop offset="30%" stop-color="#38BDF8" />
+      <stop offset="70%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#C084FC" />
+    </linearGradient>
+
+    <!-- Filters for Spatial Glow & Frosted Blur -->
+    <filter id="spatialSoftGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <filter id="ambientBacklight" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="36" result="ambient" />
+    </filter>
+  </defs>
+
+  <!-- Outer Squircle with VisionOS Glass Framing -->
+  <g clip-path="url(#squircleClip)">
+    <!-- Base Deep Graphite Canvas -->
+    <rect width="512" height="512" fill="url(#bgGlow)" />
+
+    <!-- Ambient Spatial Lighting Orbs -->
+    <circle cx="160" cy="180" r="140" fill="#0284C7" opacity="0.32" filter="url(#ambientBacklight)" />
+    <circle cx="350" cy="220" r="130" fill="#7C3AED" opacity="0.28" filter="url(#ambientBacklight)" />
+    <circle cx="256" cy="360" r="120" fill="#0EA5E9" opacity="0.22" filter="url(#ambientBacklight)" />
+
+    <!-- Micro Grid Pattern (VisionOS Spatial Matrix) -->
+    <g opacity="0.04" stroke="#FFFFFF" stroke-width="1">
+      <line x1="64" y1="0" x2="64" y2="512" />
+      <line x1="128" y1="0" x2="128" y2="512" />
+      <line x1="192" y1="0" x2="192" y2="512" />
+      <line x1="256" y1="0" x2="256" y2="512" />
+      <line x1="320" y1="0" x2="320" y2="512" />
+      <line x1="384" y1="0" x2="384" y2="512" />
+      <line x1="448" y1="0" x2="448" y2="512" />
+
+      <line x1="0" y1="64" x2="512" y2="64" />
+      <line x1="0" y1="128" x2="512" y2="128" />
+      <line x1="0" y1="192" x2="512" y2="192" />
+      <line x1="0" y1="256" x2="512" y2="256" />
+      <line x1="0" y1="320" x2="512" y2="320" />
+      <line x1="0" y1="384" x2="512" y2="384" />
+      <line x1="0" y1="448" x2="512" y2="448" />
+    </g>
+
+    <!-- Frosted Glass Pod Pedestal -->
+    <circle cx="256" cy="256" r="172" fill="#0F172A" fill-opacity="0.45" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1.5" />
+    <circle cx="256" cy="256" r="148" fill="none" stroke="rgba(56, 189, 248, 0.18)" stroke-width="1" stroke-dasharray="6 6" />
+
+    <!-- HERMES SPATIAL EMBLEM: Hermes Winged Neural Prism -->
+    <g transform="translate(0, 0)">
+      <!-- Outer Wing Left Layer 1 -->
+      <path d="M 256 128 C 220 160 110 200 84 270 C 72 302 88 332 118 334 C 146 336 178 300 216 264 C 238 244 252 230 256 226 Z" 
+            fill="url(#wingLeftGrad)" 
+            fill-opacity="0.45" />
+
+      <!-- Outer Wing Right Layer 1 -->
+      <path d="M 256 128 C 292 160 402 200 428 270 C 440 302 424 332 394 334 C 366 336 334 300 296 264 C 274 244 260 230 256 226 Z" 
+            fill="url(#wingRightGrad)" 
+            fill-opacity="0.45" />
+
+      <!-- Mid Wing Left Layer 2 (Sharper Aero Feather) -->
+      <path d="M 256 156 C 210 190 134 236 116 294 C 138 302 170 286 206 252 C 236 224 252 198 256 190 Z" 
+            fill="url(#wingLeftGrad)" 
+            fill-opacity="0.85" />
+
+      <!-- Mid Wing Right Layer 2 (Sharper Aero Feather) -->
+      <path d="M 256 156 C 302 190 378 236 396 294 C 374 302 342 286 306 252 C 276 224 260 198 256 190 Z" 
+            fill="url(#wingRightGrad)" 
+            fill-opacity="0.85" />
+
+      <!-- Glass Prism Diamond Center (VisionOS Hexagonal Refraction) -->
+      <g filter="url(#spatialSoftGlow)">
+        <!-- Top Apex Facet -->
+        <polygon points="256,104 316,198 256,236 196,198" 
+                 fill="url(#glassFacetTop)" 
+                 stroke="rgba(255, 255, 255, 0.7)" 
+                 stroke-width="1.5" 
+                 stroke-linejoin="round" />
+
+        <!-- Bottom Apex Facet -->
+        <polygon points="256,380 316,256 256,236 196,256" 
+                 fill="url(#glassFacetBottom)" 
+                 stroke="rgba(255, 255, 255, 0.3)" 
+                 stroke-width="1.5" 
+                 stroke-linejoin="round" />
+
+        <!-- Left Prism Facet -->
+        <polygon points="196,198 256,236 196,256 142,228" 
+                 fill="#0EA5E9" 
+                 fill-opacity="0.65" 
+                 stroke="rgba(255, 255, 255, 0.4)" 
+                 stroke-width="1" />
+
+        <!-- Right Prism Facet -->
+        <polygon points="316,198 256,236 316,256 370,228" 
+                 fill="#8B5CF6" 
+                 fill-opacity="0.65" 
+                 stroke="rgba(255, 255, 255, 0.4)" 
+                 stroke-width="1" />
+
+        <!-- Central Spatial Neural Spark ('H' Core Geometric Monogram) -->
+        <circle cx="256" cy="236" r="28" fill="url(#coreIrisGlow)" />
+        <circle cx="256" cy="236" r="16" fill="#FFFFFF" />
+
+        <!-- 4-Point Spatial Ray Pulse -->
+        <path d="M 256 194 L 261 231 L 298 236 L 261 241 L 256 278 L 251 241 L 214 236 L 251 231 Z" 
+              fill="#FFFFFF" />
+      </g>
+
+      <!-- Kinetic Swift Trails (Caduceus Orbital Accents) -->
+      <path d="M 200 326 C 224 350 288 350 312 326" 
+            fill="none" 
+            stroke="url(#coreIrisGlow)" 
+            stroke-width="3" 
+            stroke-linecap="round" 
+            opacity="0.75" />
+
+      <circle cx="200" cy="326" r="3.5" fill="#38BDF8" />
+      <circle cx="312" cy="326" r="3.5" fill="#C084FC" />
+    </g>
+
+    <!-- Specular Light Reflection & VisionOS Glass Border -->
+    <rect x="0" y="0" width="512" height="512" 
+          fill="none" 
+          stroke="url(#specularRim)" 
+          stroke-width="3" 
+          rx="115" ry="115" />
+
+    <!-- Top Left Glass Sheen Arch -->
+    <path d="M 40 40 Q 256 12 472 40 Q 256 96 40 40 Z" 
+          fill="#FFFFFF" 
+          opacity="0.08" />
+  </g>
+</svg>

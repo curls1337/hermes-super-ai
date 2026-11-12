@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Hermes Super AI — VisionOS Spatial Multimodal Suite &amp; Mobile Simulator</title>
+
+  <!-- Tailwind CSS Local Engine with SRI fallback -->
+  <script src="tailwind.min.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.tailwindcss.com';document.head.appendChild(s);"></script>
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+
+  <style>
+    :root {
+      --bg-spatial-canvas: #090D16;
+      --bg-graphite-deep: #0B0F19;
+      --bg-graphite-surface: #1E293B;
+      --glass-bg-subtle: rgba(255, 255, 255, 0.04);
+      --glass-bg-regular: rgba(255, 255, 255, 0.08);
+      --glass-bg-frosted: rgba(15, 23, 42, 0.72);
+      --glass-border-subtle: rgba(255, 255, 255, 0.12);
+      --glass-border-specular: rgba(255, 255, 255, 0.32);
+      --accent-cyan: #38BDF8;
+      --accent-indigo: #6366F1;
+      --accent-violet: #818CF8;
+    }
+
+    body {
+      background-color: var(--bg-spatial-canvas);
+      color: #F8FAFC;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow-x: hidden;
+      margin: 0;
+      padding: 0;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Ambient Spatial Fog Background */
+    .spatial-bg-ambient {
+      background-color: #070A12;
+      background-image:
+        radial-gradient(circle at 20% 15%, rgba(56, 189, 248, 0.14) 0%, transparent 45%),
+        radial-gradient(circle at 80% 80%, rgba(129, 140, 248, 0.12) 0%, transparent 45%),
+        radial-gradient(circle at 50% 50%, rgba(192, 132, 252, 0.06) 0%, transparent 60%);
+    }
+
+    /* Apple Spatial Glassmorphism */
+    .glass-spatial {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(32px) saturate(200%);
+      -webkit-backdrop-filter: blur(32px) saturate(200%);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.25), 0 20px 48px -12px rgba(0, 0, 0, 0.7);
+    }
+
+    .glass-tab-bar {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(40px) saturate(220%);
+      -webkit-backdrop-filter: blur(40px) saturate(220%);
+      border-top: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.28);
+    }
+
+    /* Custom Slim Scrollbars */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Shimmer Animation for Image Studio */
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    .animate-shimmer {
+      animation: shimmer 1.6s infinite;
+    }
+
+    /* Light Theme (VisionOS White) Overrides */
+    .theme-vision-white {
+      --bg-spatial-canvas: #F1F5F9;
+      --bg-graphite-deep: #E2E8F0;
+      --bg-graphite-surface: #FFFFFF;
+      --glass-bg-frosted: rgba(255, 255, 255, 0.85);
+      --glass-border-subtle: rgba(15, 23, 42, 0.08);
+      --glass-border-specular: rgba(255, 255, 255, 0.9);
+      color: #0F172A;
+    }
+    .theme-vision-white .glass-spatial {
+      background: rgba(255, 255, 255, 0.82) !important;
+      border: 1px solid rgba(255, 255, 255, 0.6) !important;
+      box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.9), 0 16px 36px -8px rgba(15, 23, 42, 0.1) !important;
+      color: #0F172A !important;
+    }
+    .theme-vision-white .glass-tab-bar {
+      background: rgba(255, 255, 255, 0.88) !important;
+      border-top: 1px solid rgba(15, 23, 42, 0.08) !important;
+    }
+    .theme-vision-white .text-slate-100,
+    .theme-vision-white .text-slate-200,
+    .theme-vision-white .text-white {
+      color: #0F172A !important;
+    }
+    .theme-vision-white .text-slate-300,
+    .theme-vision-white .text-slate-400 {
+      color: #475569 !important;
+    }
+    .theme-vision-white .bg-slate-900\/80,
+    .theme-vision-white .bg-slate-900\/60,
+    .theme-vision-white .bg-slate-950 {
+      background-color: rgba(248, 250, 252, 0.9) !important;
+      border-color: rgba(203, 213, 225, 0.6) !important;
+    }
+  </style>
+</head>
+<body id="simulator-root" class="spatial-bg-ambient min-h-screen text-slate-100 flex flex-col justify-between">
+
+  <!-- Desktop Header Bar -->
+  <header class="w-full border-b border-white/10 bg-slate-950/70 backdrop-blur-md px-4 lg:px-8 py-3.5 z-40 shrink-0">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <img src="assets/app-icon-visionos.svg" alt="Hermes Super AI" class="w-10 h-10 rounded-2xl shadow-md border border-white/20" />
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-base font-bold tracking-tight text-white">HERMES SUPER AI</h1>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-400/40">VISIONOS SPATIAL v1.0</span>
+          </div>
+          <p class="text-xs text-slate-400 hidden sm:block">Interactive Mobile Device Simulator • 5-Screen Commercial Architecture</p>
+        </div>
+      </div>
+
+      <!-- Simulator Controls -->
+      <div class="flex items-center space-x-2.5">
+        <!-- Quick Switch Device Frame -->
+        <button onclick="window.simulator.toggleDevice()" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-slate-200 flex items-center space-x-1.5 transition-all">
+          <span>📱</span><span class="hidden md:inline">Ganti Frame:</span><span class="font-bold text-sky-400">iOS / Android</span>
+        </button>
+
+        <!-- Toggle Theme -->
+        <button onclick="window.simulator.toggleTheme()" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-slate-200 flex items-center space-x-1.5 transition-all">
+          <span>🌓</span><span class="hidden md:inline">Tema:</span><span class="font-bold text-sky-400">Frost / White</span>
+        </button>
+
+        <!-- GitHub Releases / CI/CD Status -->
+        <a href="#github-releases-info" class="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-xs font-semibold text-emerald-300 flex items-center space-x-1.5 transition-all">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span>CI/CD .IPA Passing</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Canvas Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8">
+
+    <!-- Left Desktop Telemetry Panel (Hidden on Small Screens) -->
+    <div class="hidden xl:flex flex-col w-72 space-y-4 shrink-0">
+      <div class="glass-spatial rounded-3xl p-5">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400 mb-2 flex items-center space-x-1.5">
+          <span>✨</span><span>5 Pilar Spasial</span>
+        </h2>
+        <ul class="text-xs space-y-2.5 text-slate-300">
+          <li class="flex items-start space-x-2">
+            <span class="text-sky-400 font-bold">•</span>
+            <span><strong>Multimodal SSE Chat:</strong> Streaming TTFT &le; 650ms + 4 Agen Spesialis.</span>
+          </li>
+          <li class="flex items-start space-x-2">
+            <span class="text-sky-400 font-bold">•</span>
+            <span><strong>AI Image Studio:</strong> Text-to-Image rasio 1:1, 16:9, 9:16 + Shimmer.</span>
+          </li>
+          <li class="flex items-start space-x-2">
+            <span class="text-sky-400 font-bold">•</span>
+            <span><strong>Remotion Video Lab:</strong> Canvas 60fps + Sintesis Dual-Speaker.</span>
+          </li>
+          <li class="flex items-start space-x-2">
+            <span class="text-sky-400 font-bold">•</span>
+            <span><strong>Hands-free Voice Mode:</strong> 3D Spatial Orb + VAD Barge-in 750ms.</span>
+          </li>
+          <li class="flex items-start space-x-2">
+            <span class="text-sky-400 font-bold">•</span>
+            <span><strong>Unified Vault:</strong> Penyimpanan terpadu SQLite &amp; Cloud Sync.</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="glass-spatial rounded-3xl p-5">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-purple-400 mb-2 flex items-center space-x-1.5">
+          <span>🛡️</span><span>RBAC &amp; Demo Roles</span>
+        </h2>
+        <div class="space-y-2 text-xs">
+          <div class="p-2 rounded-xl bg-white/5 border border-white/10">
+            <div class="font-bold text-sky-300">👑 Superadmin</div>
+            <div class="text-[11px] text-slate-400">Akses penuh sistem, audit log, tanpa kuota.</div>
+          </div>
+          <div class="p-2 rounded-xl bg-white/5 border border-white/10">
+            <div class="font-bold text-purple-300">⚡ Pro Creator</div>
+            <div class="text-[11px] text-slate-400">Remotion 1080p clean, multi-agent switch, HD studio.</div>
+          </div>
+          <div class="p-2 rounded-xl bg-white/5 border border-white/10">
+            <div class="font-bold text-emerald-300">🛍️ Consumer</div>
+            <div class="text-[11px] text-slate-400">Asisten harian, watermark video, kamera roll.</div>
+          </div>
+          <div class="p-2 rounded-xl bg-white/5 border border-white/10">
+            <div class="font-bold text-amber-300">🧪 Guest Evaluator</div>
+            <div class="text-[11px] text-slate-400">Sandbox instan dengan role switcher 1-klik.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER: THE INTERACTIVE MOBILE DEVICE SIMULATOR CHASSIS -->
+    <div class="relative flex flex-col items-center">
+
+      <!-- Physical Mobile Chassis (iPhone 15 Pro Titanium Frame) -->
+      <div id="device-chassis" class="relative w-[385px] sm:w-[412px] h-[840px] bg-slate-950 rounded-[52px] p-3 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.9),0_0_0_12px_#1E293B,0_0_0_14px_rgba(255,255,255,0.18)] border-4 border-slate-700/60 overflow-hidden flex flex-col select-none transition-all">
+
+        <!-- Top Bezel / Dynamic Island / Punch Hole -->
+        <div class="absolute top-0 left-0 right-0 h-11 z-50 flex items-center justify-between px-7 pt-2 text-xs font-semibold">
+          <!-- Live Clock -->
+          <span id="device-clock" class="text-slate-300 tracking-tight font-medium">09:41</span>
+
+          <!-- Dynamic Island Capsule (Apple VisionOS / iOS 17) -->
+          <div id="dynamic-island-notch" class="w-28 h-6 bg-black rounded-full flex items-center justify-between px-2.5 shadow-inner">
+            <div class="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-800"></div>
+            <div class="w-2 h-2 rounded-full bg-emerald-500/70 animate-pulse"></div>
+          </div>
+
+          <!-- Android Punchhole (Hidden by Default) -->
+          <div id="android-punchhole" class="hidden w-3.5 h-3.5 rounded-full bg-black border border-slate-800 mx-auto"></div>
+
+          <!-- Battery & Signal -->
+          <div class="flex items-center space-x-1.5 text-slate-300 text-[11px]">
+            <span>5G</span>
+            <span>􀙇</span>
+            <div class="w-5 h-2.5 border border-slate-400 rounded-sm p-0.5 flex items-center">
+              <div class="w-full h-full bg-slate-200 rounded-2xs"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- In-App Top Navigation Bar & Floating Role Switcher Pill -->
+        <div class="pt-10 pb-2 px-4 flex items-center justify-between shrink-0 z-30 border-b border-white/10 bg-slate-950/40 backdrop-blur-md">
+          <div class="flex items-center space-x-2">
+            <img src="assets/logo-icon.svg" alt="Hermes Mark" class="w-6 h-6 rounded-lg" />
+            <span class="font-extrabold text-xs tracking-wider text-white">HERMES</span>
+            <span id="header-quota-badge" class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-400/30">500k TKN</span>
+          </div>
+
+          <!-- Floating Role Switcher Pill Bar -->
+          <div class="relative">
+            <button
+              id="role-switcher-pill-btn"
+              onclick="window.simulator.toggleRolePopover()"
+              class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-sky-500/20 to-purple-500/20 border border-sky-400/40 text-[11px] font-bold text-sky-200 hover:scale-105 active:scale-95 transition-all shadow-sm"
+            >
+              <span id="active-role-pill">⚡ PRO CREATOR</span>
+              <span class="text-[9px]">▾</span>
+            </button>
+
+            <!-- Role Selector Popover -->
+            <div id="role-switcher-popover" class="hidden absolute right-0 top-8 w-56 glass-spatial rounded-2xl p-2 z-50 shadow-2xl space-y-1">
+              <div class="text-[10px] uppercase font-bold text-slate-400 px-2 py-1">Evaluasi Cepat Peran:</div>
+              <button onclick="window.simulator.switchRole('superadmin'); window.simulator.toggleRolePopover();" class="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-white/10 text-xs font-semibold text-sky-300 flex items-center justify-between">
+                <span>👑 Superadmin</span>
+                <span class="text-[10px] text-slate-400 font-mono">Full Sys</span>
+              </button>
+              <button onclick="window.simulator.switchRole('pro_creator'); window.simulator.toggleRolePopover();" class="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-white/10 text-xs font-semibold text-purple-300 flex items-center justify-between">
+                <span>⚡ Pro Creator</span>
+                <span class="text-[10px] text-slate-400 font-mono">1080p 60fps</span>
+              </button>
+              <button onclick="window.simulator.switchRole('consumer'); window.simulator.toggleRolePopover();" class="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-white/10 text-xs font-semibold text-emerald-300 flex items-center justify-between">
+                <span>🛍️ Consumer</span>
+                <span class="text-[10px] text-slate-400 font-mono">Watermark</span>
+              </button>
+              <button onclick="window.simulator.switchRole('guest'); window.simulator.toggleRolePopover();" class="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-white/10 text-xs font-semibold text-amber-300 flex items-center justify-between">
+                <span>🧪 Guest Demo</span>
+                <span class="text-[10px] text-slate-400 font-mono">Sandbox</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scrollable Active Screen Content Viewport -->
+        <div id="screen-content-viewport" class="flex-1 overflow-y-auto overflow-x-hidden relative flex flex-col pb-20">
+
+          <!-- ================= SCREEN 1: CHAT MULTIMODAL ================= -->
+          <div id="screen-chat" class="flex-1 flex flex-col p-3 space-y-3">
+            <!-- Specialist Agent Switcher Bar -->
+            <div id="agent-chips-bar" class="flex items-center space-x-2 overflow-x-auto pb-1 pt-0.5 no-scrollbar shrink-0">
+              <!-- Dynamically Populated by simulator_app.js -->
+            </div>
+
+            <!-- Chat Stream Scroll Canvas -->
+            <div id="chat-scroll-area" class="flex-1 overflow-y-auto pr-1 space-y-3 min-h-[360px]">
+              <div id="chat-messages-container">
+                <!-- Dynamically Populated by simulator_app.js -->
+              </div>
+            </div>
+
+            <!-- Input Prompt Box & Attachment Controls -->
+            <div class="shrink-0 pt-2 border-t border-white/10">
+              <div class="flex items-center justify-between mb-1.5 px-1">
+                <!-- Web Search Toggle -->
+                <button
+                  id="web-search-toggle-btn"
+                  onclick="window.simulator.toggleWebSearch()"
+                  class="px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-500/20 text-sky-400 border border-sky-400/40 flex items-center space-x-1"
+                >
+                  <span>🌐</span><span>Web Search: ON</span>
+                </button>
+                <span class="text-[10px] text-slate-400">Model: GPT-4o Spatial</span>
+              </div>
+
+              <div class="glass-spatial rounded-2xl p-1.5 flex items-center space-x-2 border border-white/20">
+                <button class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-300 text-sm">
+                  📎
+                </button>
+                <input
+                  id="chat-prompt-input"
+                  type="text"
+                  placeholder="Ketik pertanyaan atau minta analisis..."
+                  class="flex-1 bg-transparent text-xs text-white placeholder-slate-400 focus:outline-none px-1"
+                />
+                <button
+                  onclick="window.simulator.sendChatMessage(document.getElementById('chat-prompt-input').value)"
+                  class="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-400 to-indigo-500 hover:from-sky-300 hover:to-indigo-400 text-slate-950 font-bold flex items-center justify-center text-sm shadow-md active:scale-95 transition-all"
+                >
+                  ➤
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ================= SCREEN 2: AI IMAGE STUDIO ================= -->
+          <div id="screen-studio" class="hidden flex-1 flex flex-col p-3.5 space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-bold text-white">AI Image Studio</h3>
+                <p class="text-[11px] text-slate-400">Diffusion Text-to-Image Presisi Tinggi</p>
+              </div>
+              <button onclick="window.simulator.enhancePrompt()" class="px-2.5 py-1 rounded-full bg-purple-500/20 border border-purple-400/40 text-[11px] font-semibold text-purple-300 flex items-center space-x-1">
+                <span>✨</span><span>Magic Polish</span>
+              </button>
+            </div>
+
+            <!-- Prompt Crafting Console -->
+            <div class="glass-spatial rounded-2xl p-3 border border-white/15 space-y-2">
+              <textarea
+                id="studio-prompt-input"
+                rows="2"
+                placeholder="Deskripsikan visual sinematik VisionOS yang ingin dibuat..."
+                class="w-full bg-transparent text-xs text-slate-100 placeholder-slate-400 focus:outline-none resize-none"
+              >Holographic AI sphere floating in graphite frost glass, VisionOS aesthetic</textarea>
+
+              <!-- Aspect Ratio Selector Pills -->
+              <div class="flex items-center space-x-1.5 pt-1">
+                <button id="ratio-btn-1-1" onclick="window.simulator.setStudioRatio('1:1')" class="ratio-pill flex-1 py-1 rounded-xl text-xs font-semibold bg-white text-slate-950 shadow-md transition-all">1:1</button>
+                <button id="ratio-btn-16-9" onclick="window.simulator.setStudioRatio('16:9')" class="ratio-pill flex-1 py-1 rounded-xl text-xs font-semibold bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 transition-all">16:9</button>
+                <button id="ratio-btn-9-16" onclick="window.simulator.setStudioRatio('9:16')" class="ratio-pill flex-1 py-1 rounded-xl text-xs font-semibold bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 transition-all">9:16</button>
+                <button id="ratio-btn-4-3" onclick="window.simulator.setStudioRatio('4:3')" class="ratio-pill flex-1 py-1 rounded-xl text-xs font-semibold bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 transition-all">4:3</button>
+              </div>
+
+              <!-- Generate Button -->
+              <button
+                onclick="window.simulator.generateImage()"
+                class="w-full py-2.5 rounded-xl bg-gradient-to-r from-sky-400 via-indigo-500 to-purple-500 hover:opacity-90 text-slate-950 font-bold text-xs tracking-wide shadow-lg active:scale-98 transition-all flex items-center justify-center space-x-1.5"
+              >
+                <span>🎨</span><span>Generate Visual Image</span>
+              </button>
+            </div>
+
+            <!-- Shimmer Loading Placeholder (Hidden by Default) -->
+            <div id="studio-shimmer-loading" class="hidden relative h-36 rounded-2xl overflow-hidden bg-slate-900 border border-white/20 flex items-center justify-center">
+              <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
+              <div class="z-10 flex flex-col items-center space-y-1.5">
+                <span class="text-xl">⚙️</span>
+                <span class="text-xs font-semibold text-sky-300">Synthesizing Neural Diffusion (Step 18/25)...</span>
+              </div>
+            </div>
+
+            <!-- Generated Gallery Showcase Grid -->
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-slate-200">Koleksi Visual Studio</span>
+                <span class="text-[10px] text-slate-400 font-mono">3 Aset</span>
+              </div>
+              <div id="studio-gallery-grid" class="grid grid-cols-2 gap-2.5">
+                <!-- Dynamically populated by simulator_app.js -->
+              </div>
+            </div>
+          </div>
+
+          <!-- ================= SCREEN 3: AI VIDEO LAB (REMOTION ENGINE) ================= -->
+          <div id="screen-video" class="hidden flex-1 flex flex-col p-3.5 space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-bold text-white">AI Video Lab</h3>
+                <p class="text-[11px] text-slate-400">Remotion React Engine 60 FPS • Dual-Speaker</p>
+              </div>
+              <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30">1080x1920 @ 60FPS</span>
+            </div>
+
+            <!-- Remotion Canvas Interactive Player Preview -->
+            <div class="relative w-full h-56 rounded-2xl overflow-hidden border border-white/20 bg-slate-950 shadow-2xl flex flex-col justify-between p-3">
+              <div class="absolute inset-0 bg-gradient-to-tr from-sky-900/40 via-slate-950 to-indigo-950/50"></div>
+
+              <!-- Top Player Meta -->
+              <div class="relative z-10 flex items-center justify-between text-[11px]">
+                <span class="bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-md text-sky-300 font-mono border border-white/10">HERMES SPATIAL REEL</span>
+                <span id="video-current-time" class="bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-md text-slate-300 font-mono border border-white/10">00:00.0 / 00:30.0</span>
+              </div>
+
+              <!-- Center Kinetic Motion Typography -->
+              <div class="relative z-10 text-center px-4">
+                <div class="text-[10px] uppercase font-bold tracking-widest text-sky-400 mb-1">Dual-Speaker Dialogue</div>
+                <p id="remotion-overlay-text" class="text-sm font-extrabold text-white leading-tight drop-shadow-md">
+                  "Selamat datang di era baru kecerdasan spasial. Ini adalah Hermes Super AI."
+                </p>
+              </div>
+
+              <!-- Player Scrubber & Playhead Controls -->
+              <div class="relative z-10 space-y-2">
+                <input
+                  id="video-timeline-scrubber"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="0"
+                  class="w-full accent-sky-400 cursor-pointer"
+                />
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <button onclick="window.simulator.toggleVideoPlayback()" id="video-play-btn" class="w-7 h-7 rounded-lg bg-white text-slate-950 font-bold flex items-center justify-center text-xs shadow-md">
+                      ▶
+                    </button>
+                    <span class="text-[11px] text-slate-300 font-medium">Preview Remotion 60fps</span>
+                  </div>
+                  <button onclick="window.simulator.renderVideoMP4()" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-[11px] font-bold text-sky-300 flex items-center space-x-1">
+                    <span>🎬</span><span>Render MP4</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Video Render Progress Drawer (Hidden by Default) -->
+            <div id="video-render-progress-drawer" class="hidden glass-spatial rounded-2xl p-3 border border-sky-400/40 space-y-1.5">
+              <div class="flex items-center justify-between text-xs">
+                <span id="video-render-status-text" class="font-semibold text-sky-300">Rendering Headless Chromium...</span>
+                <span class="text-slate-400 font-mono">ETA ~8s</span>
+              </div>
+              <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div id="video-render-bar" class="h-full bg-gradient-to-r from-sky-400 to-purple-500 w-0 transition-all duration-300"></div>
+              </div>
+            </div>
+
+            <!-- Story Beat Sequencer List -->
+            <div>
+              <div class="text-xs font-bold text-slate-200 mb-2">Storyboard Beats (Dual Speaker)</div>
+              <div id="video-storyboard-beats" class="space-y-2">
+                <!-- Dynamically populated by simulator_app.js -->
+              </div>
+            </div>
+          </div>
+
+          <!-- ================= SCREEN 4: HANDS-FREE SPATIAL VOICE MODE ================= -->
+          <div id="screen-voice" class="hidden flex-1 flex flex-col items-center justify-between p-4 min-h-[580px]">
+            <!-- Header VAD State Indicator -->
+            <div class="flex flex-col items-center space-y-1 pt-1">
+              <span id="voice-status-pill" class="text-[10px] font-bold tracking-wider px-3 py-1 rounded-full border bg-white/10 text-slate-300 border-white/20 transition-all">
+                ⚪ IDLE / READY
+              </span>
+              <p class="text-[11px] text-slate-400">Hands-Free Conversational Duplex • VAD 750ms</p>
+            </div>
+
+            <!-- Glowing Spatial Orb 3D Canvas -->
+            <div class="relative w-64 h-64 flex items-center justify-center my-auto">
+              <canvas id="voice-orb-canvas" width="260" height="260" class="w-64 h-64 cursor-pointer"></canvas>
+            </div>
+
+            <!-- Live Synchronized Transcript HUD -->
+            <div class="w-full space-y-3">
+              <div class="glass-spatial rounded-2xl p-3 border border-white/15 text-center">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-sky-400 mb-1">Live Synchronized Transcript</div>
+                <p id="voice-live-transcript" class="text-xs text-slate-200 italic leading-relaxed">
+                  "Selamat datang. Ketuk tombol mic untuk memulai obrolan suara dua arah."
+                </p>
+              </div>
+
+              <!-- Voice Control Bottom Dock -->
+              <div class="flex items-center justify-center space-x-3">
+                <button onclick="window.simulator.toggleVoiceInteraction()" class="w-12 h-12 rounded-full bg-gradient-to-tr from-sky-400 to-indigo-500 hover:from-sky-300 hover:to-indigo-400 text-slate-950 font-bold flex items-center justify-center text-lg shadow-[0_0_24px_rgba(56,189,248,0.4)] active:scale-95 transition-all">
+                  🎙️
+                </button>
+                <button onclick="window.simulator.setVoiceState('thinking')" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300">
+                  Simulasi AI Jawab
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ================= SCREEN 5: VAULT & SETTINGS ================= -->
+          <div id="screen-vault" class="hidden flex-1 flex flex-col p-3.5 space-y-4">
+            <!-- User Profile Identity Card -->
+            <div class="glass-spatial rounded-2xl p-3.5 border border-white/15 flex items-center space-x-3">
+              <img id="vault-profile-avatar" src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150" alt="Avatar" class="w-12 h-12 rounded-2xl object-cover border border-white/20 shrink-0" />
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center space-x-1.5">
+                  <span id="vault-profile-name" class="text-xs font-bold text-white truncate">Elena Rostova</span>
+                  <span class="text-[10px]">✓</span>
+                </div>
+                <p id="vault-profile-role" class="text-[11px] text-sky-400 font-medium">Pro Creator</p>
+                <div class="flex items-center space-x-2 text-[10px] text-slate-400 mt-0.5">
+                  <span>Quota: <strong id="vault-profile-tokens" class="text-slate-200">500,000 TKN</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Unified Media Gallery -->
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-slate-200">Unified Media Vault</span>
+                <span class="text-[10px] text-slate-400">Offline SQLite Sync</span>
+              </div>
+
+              <!-- Filter Chips -->
+              <div class="flex items-center space-x-1 overflow-x-auto pb-1.5 no-scrollbar">
+                <button id="filter-btn-all" onclick="window.simulator.setVaultFilter('all')" class="px-3 py-1 rounded-full text-xs font-semibold bg-white text-slate-950 shadow-sm transition-all">Semua</button>
+                <button id="filter-btn-image" onclick="window.simulator.setVaultFilter('image')" class="px-3 py-1 rounded-full text-xs font-semibold bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 transition-all">Gambar</button>
+                <button id="filter-btn-video" onclick="window.simulator.setVaultFilter('video')" class="px-3 py-1 rounded-full text-xs font-semibold bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 transition-all">Video</button>
+                <button id="filter-btn-audio" onclick="window.simulator.setVaultFilter('audio')" class="px-3 py-1 rounded-full text-xs font-semibold bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 transition-all">Suara</button>
+                <button id="filter-btn-fav" onclick="window.simulator.setVaultFilter('fav')" class="px-3 py-1 rounded-full text-xs font-semibold bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 transition-all">⭐ Favorit</button>
+              </div>
+
+              <!-- Vault Media List -->
+              <div id="vault-items-grid" class="space-y-2 mt-2">
+                <!-- Dynamically populated by simulator_app.js -->
+              </div>
+            </div>
+
+            <!-- Server Endpoint Configuration -->
+            <div class="glass-spatial rounded-2xl p-3 border border-white/15 space-y-2">
+              <div class="text-xs font-bold text-slate-200 flex items-center justify-between">
+                <span>Konfigurasi Backend Bridge</span>
+                <span class="text-[10px] text-sky-400">REST &amp; SSE</span>
+              </div>
+              <input
+                id="backend-url-input"
+                type="text"
+                value="http://localhost:3000/api/v1"
+                class="w-full bg-slate-950/80 border border-white/15 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none"
+              />
+              <div class="flex items-center justify-between">
+                <button onclick="window.simulator.testBackendConnection()" class="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-xs font-semibold text-sky-300">
+                  Uji Koneksi Server
+                </button>
+                <span id="backend-ping-status" class="text-xs text-slate-400">Status: Siap</span>
+              </div>
+            </div>
+
+            <!-- Sideload Mobile Card -->
+            <div id="github-releases-info" class="glass-spatial rounded-2xl p-3 border border-emerald-500/30 space-y-1.5">
+              <div class="flex items-center justify-between text-xs font-bold text-emerald-300">
+                <span>🍏 iOS .IPA &amp; 🤖 Android .APK Release</span>
+                <span class="text-[10px] font-mono bg-emerald-500/20 px-1.5 py-0.5 rounded">CI/CD PASS</span>
+              </div>
+              <p class="text-[11px] text-slate-300">
+                Kompilasi otomatis via GitHub Actions (Zero-Local-Build):
+              </p>
+              <div class="flex items-center space-x-2 pt-1">
+                <a href="https://github.com/devcurl/hermes-super-ai/releases" target="_blank" rel="noopener" class="flex-1 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-center text-xs font-semibold text-sky-300">
+                  Unduh .IPA (iOS)
+                </a>
+                <a href="https://github.com/devcurl/hermes-super-ai/releases" target="_blank" rel="noopener" class="flex-1 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-center text-xs font-semibold text-emerald-300">
+                  Unduh .APK (Android)
+                </a>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Floating Frosted Glass Bottom Tab Bar (Apple HIG Safe Area) -->
+        <nav class="absolute bottom-0 left-0 right-0 glass-tab-bar z-40 flex items-center justify-around px-2 pt-2 pb-5">
+          <button id="tab-btn-chat" onclick="window.simulator.switchTab('chat')" class="tab-nav-btn flex-1 flex flex-col items-center justify-center py-1 transition-all text-sky-400 font-semibold">
+            <span class="tab-icon text-lg leading-none">💬</span>
+            <span class="tab-label text-[10px] mt-1 font-medium text-sky-300">Chat</span>
+          </button>
+          <button id="tab-btn-studio" onclick="window.simulator.switchTab('studio')" class="tab-nav-btn flex-1 flex flex-col items-center justify-center py-1 transition-all text-slate-400 hover:text-slate-200">
+            <span class="tab-icon text-lg leading-none">🎨</span>
+            <span class="tab-label text-[10px] mt-1 font-medium">Studio</span>
+          </button>
+          <button id="tab-btn-video" onclick="window.simulator.switchTab('video')" class="tab-nav-btn flex-1 flex flex-col items-center justify-center py-1 transition-all text-slate-400 hover:text-slate-200">
+            <span class="tab-icon text-lg leading-none">🎬</span>
+            <span class="tab-label text-[10px] mt-1 font-medium">Video</span>
+          </button>
+          <button id="tab-btn-voice" onclick="window.simulator.switchTab('voice')" class="tab-nav-btn flex-1 flex flex-col items-center justify-center py-1 transition-all text-slate-400 hover:text-slate-200">
+            <span class="tab-icon text-lg leading-none">🎙️</span>
+            <span class="tab-label text-[10px] mt-1 font-medium">Voice</span>
+          </button>
+          <button id="tab-btn-vault" onclick="window.simulator.switchTab('vault')" class="tab-nav-btn flex-1 flex flex-col items-center justify-center py-1 transition-all text-slate-400 hover:text-slate-200">
+            <span class="tab-icon text-lg leading-none">🗄️</span>
+            <span class="tab-label text-[10px] mt-1 font-medium">Vault</span>
+          </button>
+        </nav>
+
+        <!-- iOS Home Indicator Inset Bar -->
+        <div id="home-indicator-bar" class="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1 bg-white/40 rounded-full z-50 pointer-events-none"></div>
+
+      </div>
+
+      <!-- Simulator Floating Toast Feedback Notification -->
+      <div id="simulator-toast" class="opacity-0 pointer-events-none -translate-y-2 absolute top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl glass-spatial text-xs font-semibold text-sky-200 shadow-2xl transition-all duration-300 border border-sky-400/40">
+        Beralih Peran: Pro Creator
+      </div>
+    </div>
+
+    <!-- Right Desktop Inspector Panel (Specs & Actions) -->
+    <div class="hidden xl:flex flex-col w-72 space-y-4 shrink-0">
+      <div class="glass-spatial rounded-3xl p-5">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2 flex items-center space-x-1.5">
+          <span>⚡</span><span>Quick Switcher Tester</span>
+        </h2>
+        <p class="text-xs text-slate-300 mb-3">
+          Uji seluruh hak akses antarmuka secara instan tanpa reload browser:
+        </p>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="window.simulator.switchRole('superadmin')" class="p-2 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs font-semibold text-sky-300 transition-all text-center">
+            👑 Superadmin
+          </button>
+          <button onclick="window.simulator.switchRole('pro_creator')" class="p-2 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs font-semibold text-purple-300 transition-all text-center">
+            ⚡ Pro Creator
+          </button>
+          <button onclick="window.simulator.switchRole('consumer')" class="p-2 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs font-semibold text-emerald-300 transition-all text-center">
+            🛍️ Consumer
+          </button>
+          <button onclick="window.simulator.switchRole('guest')" class="p-2 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs font-semibold text-amber-300 transition-all text-center">
+            🧪 Guest Demo
+          </button>
+        </div>
+      </div>
+
+      <div class="glass-spatial rounded-3xl p-5">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400 mb-2 flex items-center space-x-1.5">
+          <span>🛠️</span><span>Spesifikasi Rekayasa</span>
+        </h2>
+        <div class="text-xs space-y-2 text-slate-300">
+          <div class="flex justify-between border-b border-white/10 pb-1.5">
+            <span class="text-slate-400">Design System:</span>
+            <span class="font-semibold text-white">VisionOS Spatial Glass</span>
+          </div>
+          <div class="flex justify-between border-b border-white/10 pb-1.5">
+            <span class="text-slate-400">Mobile Engine:</span>
+            <span class="font-semibold text-sky-300">Flutter 3.x Cross-Platform</span>
+          </div>
+          <div class="flex justify-between border-b border-white/10 pb-1.5">
+            <span class="text-slate-400">Video Engine:</span>
+            <span class="font-semibold text-purple-300">Remotion React 60 FPS</span>
+          </div>
+          <div class="flex justify-between border-b border-white/10 pb-1.5">
+            <span class="text-slate-400">Audio VAD:</span>
+            <span class="font-semibold text-emerald-300">Web Audio RMS &le; 750ms</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Database:</span>
+            <span class="font-semibold text-amber-300">SQLite / SQLCipher ACID</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Simulator Scripts -->
+  <script src="simulator_orb.js"></script>
+  <script src="simulator_app.js"></script>
+</body>
+</html>

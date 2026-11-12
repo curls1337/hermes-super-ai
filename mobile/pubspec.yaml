@@ -1,0 +1,21 @@
+name: hermes_super_ai
+description: Hermes Super AI — VisionOS Spatial Multimodal Suite (Chat SSE, Image Studio, Remotion Video Lab, Voice Mode, Unified Vault).
+publish_to: 'none'
+version: 1.0.0+104
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  http: ^1.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

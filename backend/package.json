@@ -1,0 +1,23 @@
+{
+  "name": "hermes-super-ai-backend",
+  "version": "1.0.0",
+  "description": "Hermes Super AI Backend Bridge (REST + SSE Streaming + RBAC + SQLite Vault)",
+  "main": "server.mjs",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "seed": "node ../database/seed.js",
+    "check": "node --check server.mjs config/env.mjs config/db.mjs domain/entities/rbac.mjs application/useCases.mjs middlewares/auth.mjs routes/api.mjs"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

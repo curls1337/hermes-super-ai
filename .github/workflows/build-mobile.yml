@@ -1,0 +1,171 @@
+name: Build Hermes Super AI Mobile (iOS IPA & Android APK)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Android APK (Flutter Release)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Scaffold Native Shells & Inject Hermes Mobile Core
+        run: |
+          mkdir -p /tmp/custom_src
+          if [ -d "mobile/lib" ]; then
+            cp -r mobile/lib /tmp/custom_src/
+            cp mobile/pubspec.yaml /tmp/custom_src/ 2>/dev/null || true
+          elif [ -d "lib" ]; then
+            cp -r lib /tmp/custom_src/
+            cp pubspec.yaml /tmp/custom_src/ 2>/dev/null || true
+          fi
+          
+          flutter create --platforms=android,ios --org com.devcurl.hermes --project-name hermes_super_ai .
+          
+          if [ -d "/tmp/custom_src/lib" ]; then
+            cp -r /tmp/custom_src/lib/* lib/
+          fi
+          if [ -f "/tmp/custom_src/pubspec.yaml" ]; then
+            cp /tmp/custom_src/pubspec.yaml pubspec.yaml
+          fi
+          
+          # Inject Commercial App Name into Android Manifest
+          sed -i 's/android:label="[a-zA-Z0-9_ ]*"/android:label="Hermes Super AI"/' android/app/src/main/AndroidManifest.xml || true
+          
+          flutter pub get
+
+      - name: Build Release APK
+        run: |
+          flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk ./HermesSuperAI-release.apk
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Hermes-Super-AI-Android-APK
+          path: ./HermesSuperAI-release.apk
+
+  build-ios:
+    name: Build iOS Sideload IPA (macOS Runner)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Scaffold Native Shells & Inject Hermes Mobile Core
+        run: |
+          mkdir -p /tmp/custom_src
+          if [ -d "mobile/lib" ]; then
+            cp -r mobile/lib /tmp/custom_src/
+            cp mobile/pubspec.yaml /tmp/custom_src/ 2>/dev/null || true
+          elif [ -d "lib" ]; then
+            cp -r lib /tmp/custom_src/
+            cp pubspec.yaml /tmp/custom_src/ 2>/dev/null || true
+          fi
+          
+          flutter create --platforms=android,ios --org com.devcurl.hermes --project-name hermes_super_ai .
+          
+          if [ -d "/tmp/custom_src/lib" ]; then
+            cp -r /tmp/custom_src/lib/* lib/
+          fi
+          if [ -f "/tmp/custom_src/pubspec.yaml" ]; then
+            cp /tmp/custom_src/pubspec.yaml pubspec.yaml
+          fi
+          
+          # Inject Commercial App Display Name into iOS Info.plist
+          sed -i '' 's/<string>$(PRODUCT_NAME)<\/string>/<string>Hermes Super AI<\/string>/g' ios/Runner/Info.plist || true
+          
+          flutter pub get
+
+      - name: Build Unsigned iOS Sideload IPA via xcodebuild
+        run: |
+          flutter build ios --config-only --no-codesign
+          cd ios
+          xcodebuild build \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM=""
+          cd ..
+          mkdir -p Payload
+          cp -r ios/build/Build/Products/Release-iphoneos/Runner.app Payload/
+          zip -r ./HermesSuperAI-iOS-sideload.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Hermes-Super-AI-iOS-IPA
+          path: ./HermesSuperAI-iOS-sideload.ipa
+
+  publish-release:
+    name: Publish Artifacts to GitHub Releases
+    needs: [build-android, build-ios]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download APK Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Hermes-Super-AI-Android-APK
+          path: ./release-binaries
+
+      - name: Download IPA Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Hermes-Super-AI-iOS-IPA
+          path: ./release-binaries
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: "Hermes Super AI v1.0.${{ github.run_number }} (iOS .ipa & Android .apk)"
+          body: |
+            ## 📱 Hermes Super AI Mobile Release
+            Paket instalasi resmi untuk pengujian dan evaluasi:
+            - 🍏 **`HermesSuperAI-iOS-sideload.ipa`**: Siap di-sideload langsung via ESign, GBox, Scarlet, AltStore, atau TrollStore.
+            - 🤖 **`HermesSuperAI-release.apk`**: Siap diinstal langsung di perangkat Android.
+
+            ### Fitur Utama:
+            - ✨ VisionOS Spatial Glassmorphism (Graphite Frost / Vision White)
+            - 💬 Multimodal AI Chat dengan Real-time Streaming & Multi-Agent Specialist Switcher
+            - 🎨 AI Image Studio dengan Aspect Ratio Selector (1:1, 16:9, 9:16)
+            - 🎬 AI Video Lab dengan Remotion Storyboard & Dual-Speaker Audio
+            - 🎙️ Hands-free Voice Mode dengan Spatial Orb Audio Visualizer
+            - 🗄️ Unified Media Vault & In-App Camera Roll Export
+          draft: false
+          prerelease: false
+          files: |
+            ./release-binaries/HermesSuperAI-iOS-sideload.ipa
+            ./release-binaries/HermesSuperAI-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

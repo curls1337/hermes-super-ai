@@ -1,0 +1,19 @@
+{
+  "slug": "hermes-super-ai",
+  "title": "Hermes Super AI — VisionOS Spatial Multimodal Suite",
+  "description": "Platform asisten AI multimodal dan studio kreasi generatif VisionOS Spatial Glass: Multimodal Chat SSE Streaming, Image Studio, Remotion 60fps Video Lab Dual-Speaker, Hands-free Spatial Voice Mode, dan Unified Media Vault.",
+  "public": true,
+  "category": "ai-creative-suite",
+  "tags": [
+    "visionos",
+    "spatial-glass",
+    "apple-hig",
+    "remotion-video",
+    "flutter-mobile",
+    "ios-ipa",
+    "android-apk",
+    "multimodal-ai",
+    "hands-free-voice",
+    "rbac-simulator"
+  ]
+}
