@@ -224,12 +224,19 @@ class HermesAppState extends ChangeNotifier {
 
   // Studio
   String selectedRatio = '1:1';
+  String selectedImageStyle = 'auto';
   bool isGeneratingImage = false;
+  String? imageFeedbackMsg;
+  bool imageFeedbackIsError = false;
 
   // Video Lab
   bool isRenderingVideo = false;
   double videoRenderProgress = 0.0;
+  String selectedVideoVoice = 'auto';
+  String selectedVideoTemplate = 'auto';
   String? lastRenderedVideoUrl;
+  String? videoFeedbackMsg;
+  bool videoFeedbackIsError = false;
 
   // Voice Mode
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -456,12 +463,44 @@ class HermesAppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> generateImage(String prompt) async {
-    if (prompt.trim().isEmpty || isGeneratingImage) return;
+  void setImageStyle(String s) {
+    selectedImageStyle = s;
+    notifyListeners();
+  }
+
+  void setVideoVoice(String v) {
+    selectedVideoVoice = v;
+    notifyListeners();
+  }
+
+  void setVideoTemplate(String t) {
+    selectedVideoTemplate = t;
+    notifyListeners();
+  }
+
+  Future<void> refreshServerData() async {
+    await apiClient.healthCheck();
+    notifyListeners();
+  }
+
+  Future<String?> generateImage(String prompt) async {
+    if (prompt.trim().isEmpty || isGeneratingImage) {
+      imageFeedbackMsg = 'Tulis deskripsi gambar terlebih dahulu.';
+      imageFeedbackIsError = true;
+      notifyListeners();
+      return imageFeedbackMsg;
+    }
     isGeneratingImage = true;
+    imageFeedbackMsg = null;
+    imageFeedbackIsError = false;
     notifyListeners();
 
-    final res = await apiClient.generateImage(prompt.trim(), selectedRatio);
+    final styleToSend = selectedImageStyle == 'auto' ? 'visionos_cyber_glass' : selectedImageStyle;
+    final res = await apiClient.generateImage(
+      prompt.trim(),
+      selectedRatio,
+      stylePreset: styleToSend,
+    );
     isGeneratingImage = false;
 
     if (res['success'] == true && res['data'] != null) {
@@ -476,7 +515,7 @@ class HermesAppState extends ChangeNotifier {
           id: (d['id'] ?? 'img_${DateTime.now().millisecondsSinceEpoch}').toString(),
           prompt: prompt.trim(),
           ratio: (d['aspectRatio'] ?? selectedRatio).toString(),
-          style: 'VisionOS Spatial AI',
+          style: styleToSend,
           resolution: (d['resolution'] ?? '1024x1024').toString(),
           seed: seed,
           url: fullUrl,
@@ -492,8 +531,17 @@ class HermesAppState extends ChangeNotifier {
           thumbUrl: fullUrl,
         ),
       );
+      imageFeedbackMsg = '✅ Gambar AI berhasil dibuat & disimpan!';
+      imageFeedbackIsError = false;
+      notifyListeners();
+      return null;
+    } else {
+      final errMsg = res['error']?['message']?.toString() ?? 'Gagal membuat gambar. Periksa koneksi internet.';
+      imageFeedbackMsg = '❌ $errMsg';
+      imageFeedbackIsError = true;
+      notifyListeners();
+      return imageFeedbackMsg;
     }
-    notifyListeners();
   }
 
   void addStoryboardBeat(String title, String speaker, String script) {
@@ -507,26 +555,47 @@ class HermesAppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> startVideoRender({String? customScript}) async {
-    if (isRenderingVideo) return;
-    isRenderingVideo = true;
-    videoRenderProgress = 0.1;
-    lastRenderedVideoUrl = null;
-    notifyListeners();
-
+  Future<String?> startVideoRender({String? customScript}) async {
+    if (isRenderingVideo) return null;
     final scriptText = (customScript != null && customScript.trim().isNotEmpty)
         ? customScript.trim()
         : beats.map((b) => b.script).join(' ');
+    if (scriptText.isEmpty) {
+      videoFeedbackMsg = '❌ Tulis topik atau naskah video terlebih dahulu.';
+      videoFeedbackIsError = true;
+      notifyListeners();
+      return videoFeedbackMsg;
+    }
+
+    isRenderingVideo = true;
+    videoRenderProgress = 0.12;
+    lastRenderedVideoUrl = null;
+    videoFeedbackMsg = null;
+    videoFeedbackIsError = false;
+    notifyListeners();
+
     final titleText = scriptText.length > 42 ? scriptText.substring(0, 42) : scriptText;
-    final startRes = await apiClient.renderVideo(titleText, scriptText);
+    final voiceToSend = selectedVideoVoice == 'auto' ? 'id-ID-GadisNeural' : selectedVideoVoice;
+    final templateToSend = selectedVideoTemplate == 'auto' ? 'cinematic_spatial_glass' : selectedVideoTemplate;
+
+    final startRes = await apiClient.renderVideo(
+      titleText,
+      scriptText,
+      voice: voiceToSend,
+      template: templateToSend,
+    );
     if (startRes['success'] != true || startRes['data']?['jobId'] == null) {
       isRenderingVideo = false;
       videoRenderProgress = 0.0;
+      final errMsg = startRes['error']?['message']?.toString() ?? 'Gagal terhubung ke Video Engine.';
+      videoFeedbackMsg = '❌ $errMsg';
+      videoFeedbackIsError = true;
       notifyListeners();
-      return;
+      return videoFeedbackMsg;
     }
 
     final jobId = startRes['data']['jobId'].toString();
+    final completer = Completer<String?>();
     Timer.periodic(const Duration(seconds: 1), (timer) async {
       final stRes = await apiClient.checkVideoStatus(jobId);
       final d = stRes['data'] as Map<String, dynamic>?;
@@ -540,6 +609,8 @@ class HermesAppState extends ChangeNotifier {
         videoRenderProgress = 1.0;
         final rawVideo = (d['outputVideoUrl'] ?? '').toString();
         lastRenderedVideoUrl = apiClient.resolveMediaUrl(rawVideo);
+        videoFeedbackMsg = '✅ Video MP4 berhasil dibuat & siap diputar!';
+        videoFeedbackIsError = false;
         timer.cancel();
         vaultItems.insert(
           0,
@@ -553,12 +624,20 @@ class HermesAppState extends ChangeNotifier {
             isFavorite: true,
           ),
         );
+        notifyListeners();
+        if (!completer.isCompleted) completer.complete(null);
       } else if (d['status'] == 'failed') {
         isRenderingVideo = false;
+        videoFeedbackMsg = '❌ Render video gagal di server.';
+        videoFeedbackIsError = true;
         timer.cancel();
+        notifyListeners();
+        if (!completer.isCompleted) completer.complete(videoFeedbackMsg);
+      } else {
+        notifyListeners();
       }
-      notifyListeners();
     });
+    return completer.future;
   }
 
   Future<void> setVoiceMuted(bool muted) async {

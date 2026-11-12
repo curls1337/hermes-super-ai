@@ -200,9 +200,26 @@ class _VideoLabScreenState extends State<VideoLabScreen> {
       'Review singkat iPhone 16 Pro dengan layar Titanium dan kecerdasan spasial Apple.',
     ];
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
+    const voiceOptions = [
+      {'id': 'auto', 'label': '🎙️ Auto Suara'},
+      {'id': 'id-ID-GadisNeural', 'label': '👩 Gadis (Indonesia)'},
+      {'id': 'id-ID-ArdiNeural', 'label': '👨 Ardi (Indonesia)'},
+      {'id': 'en-US-AriaNeural', 'label': '🇺🇸 Aria (English)'},
+    ];
+    const templateOptions = [
+      {'id': 'auto', 'label': '✨ Auto Mode'},
+      {'id': 'cinematic_spatial_glass', 'label': '🪟 Spatial 3D Glass'},
+      {'id': 'editorial_broadcast', 'label': '📰 Editorial Vox/News'},
+      {'id': 'cyber_hud_60fps', 'label': '⚡ Cyber HUD 60fps'},
+    ];
+
+    return RefreshIndicator(
+      onRefresh: widget.appState.refreshServerData,
+      color: VisionTokens.accentPurple,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -305,14 +322,88 @@ class _VideoLabScreenState extends State<VideoLabScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+
+              // Voice Selection Chips
+              Text(
+                'Pilih Suara Narasi:',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white70 : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 32,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: voiceOptions.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 6),
+                  itemBuilder: (_, idx) {
+                    final v = voiceOptions[idx];
+                    final active = widget.appState.selectedVideoVoice == v['id'];
+                    return ChoiceChip(
+                      label: Text(v['label']!, style: const TextStyle(fontSize: 11)),
+                      selected: active,
+                      selectedColor: VisionTokens.accentCyan.withOpacity(0.25),
+                      onSelected: (_) {
+                        HapticFeedback.selectionClick();
+                        widget.appState.setVideoVoice(v['id']!);
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Template Selection Chips
+              Text(
+                'Pilih Template Visual:',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white70 : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 32,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: templateOptions.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 6),
+                  itemBuilder: (_, idx) {
+                    final t = templateOptions[idx];
+                    final active = widget.appState.selectedVideoTemplate == t['id'];
+                    return ChoiceChip(
+                      label: Text(t['label']!, style: const TextStyle(fontSize: 11)),
+                      selected: active,
+                      selectedColor: VisionTokens.accentPurple.withOpacity(0.35),
+                      onSelected: (_) {
+                        HapticFeedback.selectionClick();
+                        widget.appState.setVideoTemplate(t['id']!);
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 14),
+
               SizedBox(
                 height: 44,
                 child: ElevatedButton.icon(
                   onPressed: widget.appState.isRenderingVideo
                       ? null
-                      : () {
+                      : () async {
                           HapticFeedback.mediumImpact();
-                          widget.appState.startVideoRender(customScript: _storyCtrl.text);
+                          final err = await widget.appState.startVideoRender(customScript: _storyCtrl.text);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(err ?? '✅ Video MP4 berhasil dibuat & siap diputar!'),
+                              backgroundColor: err != null ? Colors.red.shade700 : const Color(0xFF10B981),
+                            ),
+                          );
                         },
                   icon: const Icon(Icons.movie_creation_rounded, size: 18),
                   label: Text(
@@ -330,6 +421,33 @@ class _VideoLabScreenState extends State<VideoLabScreen> {
                   ),
                 ),
               ),
+              if (widget.appState.videoFeedbackMsg != null) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: widget.appState.videoFeedbackIsError
+                        ? Colors.red.withOpacity(0.16)
+                        : Colors.green.withOpacity(0.16),
+                    border: Border.all(
+                      color: widget.appState.videoFeedbackIsError
+                          ? Colors.redAccent
+                          : Colors.greenAccent,
+                    ),
+                  ),
+                  child: Text(
+                    widget.appState.videoFeedbackMsg!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: widget.appState.videoFeedbackIsError
+                          ? Colors.redAccent
+                          : Colors.greenAccent,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -744,6 +862,7 @@ class _VideoLabScreenState extends State<VideoLabScreen> {
           );
         }),
       ],
+      ),
     );
   }
 

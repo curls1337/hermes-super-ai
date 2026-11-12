@@ -147,7 +147,11 @@ class HermesApiClient {
     }
   }
 
-  Future<Map<String, dynamic>> generateImage(String prompt, String aspectRatio) async {
+  Future<Map<String, dynamic>> generateImage(
+    String prompt,
+    String aspectRatio, {
+    String stylePreset = 'visionos_cyber_glass',
+  }) async {
     await ensureSession();
     try {
       final res = await http
@@ -157,17 +161,22 @@ class HermesApiClient {
             body: jsonEncode({
               'prompt': prompt,
               'aspectRatio': aspectRatio,
-              'stylePreset': 'visionos_cyber_glass',
+              'stylePreset': stylePreset,
             }),
           )
-          .timeout(const Duration(seconds: 25));
+          .timeout(const Duration(seconds: 35));
       return jsonDecode(res.body) as Map<String, dynamic>;
     } catch (e) {
       return {'success': false, 'error': {'message': e.toString()}};
     }
   }
 
-  Future<Map<String, dynamic>> renderVideo(String title, String scriptText) async {
+  Future<Map<String, dynamic>> renderVideo(
+    String title,
+    String scriptText, {
+    String voice = 'id-ID-GadisNeural',
+    String template = 'cinematic_spatial_glass',
+  }) async {
     await ensureSession();
     try {
       final res = await http
@@ -177,11 +186,12 @@ class HermesApiClient {
             body: jsonEncode({
               'title': title,
               'scriptText': scriptText,
-              'speakerFemaleVoice': 'id-ID-GadisNeural',
+              'speakerFemaleVoice': voice,
+              'templateName': template,
               'durationSec': 15,
             }),
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 20));
       return jsonDecode(res.body) as Map<String, dynamic>;
     } catch (e) {
       return {'success': false, 'error': {'message': e.toString()}};

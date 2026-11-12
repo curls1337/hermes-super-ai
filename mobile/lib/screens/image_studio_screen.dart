@@ -94,10 +94,21 @@ class _ImageStudioScreenState extends State<ImageStudioScreen> {
   Widget build(BuildContext context) {
     final isDark = widget.appState.isDarkTheme;
     const ratios = ['1:1', '16:9', '9:16', '4:3'];
+    const styleOptions = [
+      {'id': 'auto', 'label': '✨ Auto'},
+      {'id': 'photorealistic_8k', 'label': '📸 Photoreal'},
+      {'id': 'visionos_cyber_glass', 'label': '🪟 VisionOS'},
+      {'id': 'cyberpunk_neon', 'label': '🌆 Cyberpunk'},
+      {'id': 'anime_studio', 'label': '🎨 Anime'},
+    ];
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
+    return RefreshIndicator(
+      onRefresh: widget.appState.refreshServerData,
+      color: VisionTokens.accentCyan,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -219,15 +230,44 @@ class _ImageStudioScreenState extends State<ImageStudioScreen> {
                   );
                 }).toList(),
               ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 34,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: styleOptions.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 6),
+                  itemBuilder: (_, idx) {
+                    final opt = styleOptions[idx];
+                    final active = widget.appState.selectedImageStyle == opt['id'];
+                    return ChoiceChip(
+                      label: Text(opt['label']!, style: const TextStyle(fontSize: 11)),
+                      selected: active,
+                      selectedColor: VisionTokens.accentCyan.withOpacity(0.25),
+                      onSelected: (_) {
+                        HapticFeedback.selectionClick();
+                        widget.appState.setImageStyle(opt['id']!);
+                      },
+                    );
+                  },
+                ),
+              ),
               const SizedBox(height: 14),
               SizedBox(
                 height: 46,
                 child: ElevatedButton.icon(
                   onPressed: widget.appState.isGeneratingImage
                       ? null
-                      : () {
+                      : () async {
                           HapticFeedback.mediumImpact();
-                          widget.appState.generateImage(_promptCtrl.text);
+                          final err = await widget.appState.generateImage(_promptCtrl.text);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(err ?? '✅ Gambar AI berhasil dibuat!'),
+                              backgroundColor: err != null ? Colors.red.shade700 : const Color(0xFF10B981),
+                            ),
+                          );
                         },
                   icon: const Icon(Icons.brush_rounded, size: 18),
                   label: Text(
@@ -262,6 +302,33 @@ class _ImageStudioScreenState extends State<ImageStudioScreen> {
                 SizedBox(width: 14),
                 Text('Merender Neural Diffusion (Step 18/25)...'),
               ],
+            ),
+          ),
+        ],
+        if (widget.appState.imageFeedbackMsg != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              color: widget.appState.imageFeedbackIsError
+                  ? Colors.red.withOpacity(0.16)
+                  : Colors.green.withOpacity(0.16),
+              border: Border.all(
+                color: widget.appState.imageFeedbackIsError
+                    ? Colors.redAccent
+                    : Colors.greenAccent,
+              ),
+            ),
+            child: Text(
+              widget.appState.imageFeedbackMsg!,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: widget.appState.imageFeedbackIsError
+                    ? Colors.redAccent
+                    : Colors.greenAccent,
+              ),
             ),
           ),
         ],
@@ -353,6 +420,7 @@ class _ImageStudioScreenState extends State<ImageStudioScreen> {
           },
         ),
       ],
+      ),
     );
   }
 }
