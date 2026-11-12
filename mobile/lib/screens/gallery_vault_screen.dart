@@ -14,7 +14,7 @@ class GalleryVaultScreen extends StatefulWidget {
 }
 
 class _GalleryVaultScreenState extends State<GalleryVaultScreen> {
-  final _urlCtrl = TextEditingController(text: 'http://localhost:3000/api/v1');
+  final _urlCtrl = TextEditingController(text: 'https://webui.5nod.com/staging/hermes-super-ai/api/v1');
 
   @override
   void dispose() {

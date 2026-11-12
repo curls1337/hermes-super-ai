@@ -278,16 +278,55 @@
       this.vaultItems = [...INITIAL_SEED_DATA.vaultItems];
       this.currentFilter = 'all';
 
+      // Live Backend Bridge Configuration
+      this.basePrefix = window.location.pathname.startsWith('/staging/hermes-super-ai')
+        ? '/staging/hermes-super-ai'
+        : '';
+      this.apiBaseUrl = `${this.basePrefix}/api/v1`;
+      this.authToken = '';
+
       // Audio Haptic Synthesizer
       this.hapticCtx = null;
     }
 
-    init() {
+    getMediaUrl(relPath) {
+      if (!relPath) return '';
+      if (/^https?:\/\//i.test(relPath)) return relPath;
+      const clean = relPath.startsWith('/') ? relPath : `/${relPath}`;
+      if (this.basePrefix && !clean.startsWith(this.basePrefix)) {
+        return `${this.basePrefix}${clean}`;
+      }
+      return clean;
+    }
+
+    async syncAuthSession() {
+      try {
+        const res = await fetch(`${this.apiBaseUrl}/auth/demo-switch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ targetRole: this.currentRole })
+        });
+        const json = await res.json();
+        if (json?.success && json?.data?.token) {
+          this.authToken = json.data.token;
+          return true;
+        }
+      } catch {}
+      return false;
+    }
+
+    async init() {
       this.setupDOM();
       this.setupClock();
       this.setupEventListeners();
       this.setupVoiceOrb();
       this.renderAll();
+      const urlInput = document.getElementById('backend-url-input');
+      if (urlInput) {
+        urlInput.value = `${window.location.origin}${this.apiBaseUrl}`;
+      }
+      await this.syncAuthSession();
+      this.testBackendConnection(true);
     }
 
     // Web Audio Synthesized Tactile Haptic Click
@@ -393,7 +432,7 @@
       }
     }
 
-    switchRole(roleSlug) {
+    async switchRole(roleSlug) {
       if (!INITIAL_SEED_DATA.roles[roleSlug]) return;
       this.currentRole = roleSlug;
       this.triggerHaptic('role');
@@ -406,6 +445,7 @@
 
       this.showToast(`Beralih Peran: ${policy.roleName}`);
       this.renderAll();
+      await this.syncAuthSession();
     }
 
     switchTab(tabName) {
@@ -678,7 +718,7 @@
       this.streamAssistantResponse(clean);
     }
 
-    streamAssistantResponse(userPrompt) {
+    async streamAssistantResponse(userPrompt) {
       const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const ag = INITIAL_SEED_DATA.agents.find((a) => a.id === this.activeAgent) || INITIAL_SEED_DATA.agents[0];
       const assistantMsg = {
@@ -688,50 +728,85 @@
         content: '',
         timestamp: nowStr,
         webSearch: this.webSearchEnabled,
-        citations: this.webSearchEnabled
-          ? [
-              {
-                title: 'Apple VisionOS Spatial Human Interface Guidelines',
-                url: 'https://developer.apple.com/design/human-interface-guidelines/visionos',
-                domain: 'developer.apple.com',
-                snippet: 'Glass material hierarchy, specular borders, and dynamic lighting principles for spatial computing.'
-              },
-              {
-                title: 'Hermes Core Multimodal SSE Bridge Specification',
-                url: 'https://hermes-agent.nousresearch.com/docs',
-                domain: 'hermes-agent.nousresearch.com',
-                snippet: 'Low-latency Server-Sent Events streaming and multi-agent specialist tool execution.'
-              }
-            ]
-          : []
+        citations: []
       };
 
       this.chatMessages.push(assistantMsg);
       this.renderChatScreen();
+      this.scrollChatBottom();
 
-      let targetResponse = '';
-      if (ag.id === 'tech_architect') {
-        targetResponse = `### Analisis Arsitektur (${ag.name})\n\nPermintaan **"${userPrompt.slice(0, 60)}"** berhasil diproses melalui **Clean Architecture Pipeline**:\n\n\`\`\`typescript\n// Server-Sent Events Stream Bridge (TTFT <= 650ms)\nexport async function streamBridge(payload: ChatRequest) {\n  return new Response(sseStream, {\n    headers: { 'Content-Type': 'text/event-stream' }\n  });\n}\n\`\`\`\n\n- **Otorisasi:** JWT HS256 + RBAC Guard aktif.\n- **Spasial:** VisionOS Graphite Frost \`blur(24px) saturate(180%)\`.`;
-      } else if (ag.id === 'business_analyst') {
-        targetResponse = `### Ringkasan Strategis (${ag.name})\n\n| Metrik | Baseline | Hasil Implementasi |\n| :--- | :--- | :--- |\n| TTFT SSE Chat | <= 650 ms | Terpenuhi (480ms) |\n| Video Render | <= 45 dtk | Headless Remotion MP4 |\n| Mobile CI/CD | GitHub Actions | Unsigned .IPA Sideload |\n\nDisarankan mengonsolidasikan seluruh keluaran prompt ke dalam **Unified Media Vault** terenkripsi.`;
-      } else if (ag.id === 'creative_director') {
-        targetResponse = `### Arahan Seni & UX Spasial (${ag.name})\n\nUntuk merealisasikan **"${userPrompt.slice(0, 50)}"**, gunakan kaidah **VisionOS Spatial Glass**:\n\n1. **Refraksi Specular:** Border 1px \`rgba(255,255,255,0.22)\` dengan kurvatur squircle 24px.\n2. **Pencahayaan Volumetrik:** Pendar Electric Cyan (\`#38BDF8\`) dan Neural Violet (\`#818CF8\`).\n3. **Audio-Motion:** Animasi fluida 60 FPS sinkron dengan sintesis suara narasi.`;
-      } else {
-        targetResponse = `Halo! Saya **${ag.name}**. Saya telah memproses pesan Anda terkait **"${userPrompt.slice(0, 60)}"**.\n\n- **Multimodal Ready:** Siap melanjutkan obrolan, mengolah gambar di **Image Studio**, atau merender video di **Video Lab**.\n- **Kedaulatan Data:** Hasil tersimpan rapi di Vault lokal dengan enkripsi database SQLite.`;
+      let streamedAny = false;
+      try {
+        if (!this.authToken) await this.syncAuthSession();
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.authToken) headers.Authorization = `Bearer ${this.authToken}`;
+
+        const payloadMessages = this.chatMessages
+          .filter((m) => m.content && m.content.trim())
+          .map((m) => ({ role: m.role, content: m.content }));
+
+        const resp = await fetch(`${this.apiBaseUrl}/chat/stream`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            agentPersona: this.activeAgent,
+            messages: payloadMessages,
+            webSearchEnabled: this.webSearchEnabled
+          })
+        });
+
+        if (resp.ok && resp.body) {
+          const reader = resp.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+          let buf = '';
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            const lines = buf.split('\n');
+            buf = lines.pop(); // keep last incomplete line
+
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i].trim();
+              if (line.startsWith('data:')) {
+                const jsonStr = line.slice(5).trim();
+                try {
+                  const ev = JSON.parse(jsonStr);
+                  if (ev.delta) {
+                    assistantMsg.content += ev.delta;
+                    streamedAny = true;
+                    this.renderChatScreen();
+                    this.scrollChatBottom();
+                  } else if (ev.citations && Array.isArray(ev.citations)) {
+                    assistantMsg.citations = ev.citations;
+                    this.renderChatScreen();
+                  }
+                } catch {}
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[Chat Stream Fallback]', err);
       }
 
-      const words = targetResponse.split(' ');
-      let index = 0;
-      const interval = setInterval(() => {
-        if (index < words.length) {
-          assistantMsg.content += (index === 0 ? '' : ' ') + words[index];
-          index++;
-          this.renderChatScreen();
-          this.scrollChatBottom();
-        } else {
-          clearInterval(interval);
-        }
-      }, 35);
+      if (!streamedAny || !assistantMsg.content.trim()) {
+        // Fallback local deterministic reply
+        let targetResponse = `Halo! Saya **${ag.name}**. Saya telah memproses pesan Anda terkait **"${userPrompt.slice(0, 60)}"**.\n\n- **Multimodal Ready:** Siap melanjutkan obrolan, mengolah gambar di **Image Studio**, atau merender video di **Video Lab**.\n- **Kedaulatan Data:** Hasil tersimpan rapi di Vault lokal dengan enkripsi database SQLite.`;
+        const words = targetResponse.split(' ');
+        let index = 0;
+        const interval = setInterval(() => {
+          if (index < words.length) {
+            assistantMsg.content += (index === 0 ? '' : ' ') + words[index];
+            index++;
+            this.renderChatScreen();
+            this.scrollChatBottom();
+          } else {
+            clearInterval(interval);
+          }
+        }, 30);
+      }
     }
 
     scrollChatBottom() {
@@ -786,7 +861,7 @@
       this.showToast('✨ Magic Polish: Prompt telah dioptimasi!');
     }
 
-    generateImage() {
+    async generateImage() {
       const input = document.getElementById('studio-prompt-input');
       const prompt = input ? input.value.trim() : '';
       if (!prompt) {
@@ -798,32 +873,56 @@
       const loader = document.getElementById('studio-shimmer-loading');
       if (loader) loader.classList.remove('hidden');
 
-      setTimeout(() => {
-        if (loader) loader.classList.add('hidden');
-        const seed = Math.floor(100000 + Math.random() * 899999);
+      try {
+        if (!this.authToken) await this.syncAuthSession();
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.authToken) headers.Authorization = `Bearer ${this.authToken}`;
+
         const ratio = this.selectedRatio || '1:1';
-        const newImg = {
-          id: `img_gen_${Date.now()}`,
-          prompt,
-          ratio,
-          style: 'VisionOS Spatial Glass',
-          resolution: ratio === '16:9' ? '1280x720' : ratio === '9:16' ? '720x1280' : '1024x1024',
-          seed,
-          url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1024&q=80',
-          date: 'Baru saja'
-        };
-        this.imageGallery.unshift(newImg);
-        this.vaultItems.unshift({
-          id: `vlt_${Date.now()}`,
-          title: prompt.slice(0, 32),
-          type: 'image',
-          thumb: newImg.url,
-          detail: `Aspect ${ratio} • Seed #${seed} • PNG`,
-          isFav: false
+        const resp = await fetch(`${this.apiBaseUrl}/image/generate`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            prompt,
+            aspectRatio: ratio,
+            stylePreset: 'visionos_cyber_glass'
+          })
         });
-        this.renderStudioScreen();
-        this.showToast('✅ Gambar AI berhasil digenerasi & tersimpan di Vault!');
-      }, 3000);
+        const json = await resp.json();
+        if (loader) loader.classList.add('hidden');
+
+        if (json?.success && json?.data) {
+          const d = json.data;
+          const fullUrl = this.getMediaUrl(d.imageUrl);
+          const newImg = {
+            id: d.id,
+            prompt: d.prompt,
+            ratio: d.aspectRatio || ratio,
+            style: 'VisionOS Spatial AI',
+            resolution: d.resolution || '1024x1024',
+            seed: d.seed,
+            url: fullUrl,
+            date: 'Baru saja'
+          };
+          this.imageGallery.unshift(newImg);
+          this.vaultItems.unshift({
+            id: `vlt_${Date.now()}`,
+            title: prompt.slice(0, 32),
+            type: 'image',
+            thumb: fullUrl,
+            detail: `Aspect ${newImg.ratio} • Seed #${d.seed} • AI Generated`,
+            isFav: false
+          });
+          this.renderStudioScreen();
+          this.renderVaultScreen();
+          this.showToast('✅ Gambar AI nyata berhasil digenerasi!');
+          return;
+        }
+      } catch (err) {
+        console.warn('[Image Gen Error]', err);
+      }
+      if (loader) loader.classList.add('hidden');
+      this.showToast('⚠️ Gagal menghubungi AI Image Engine. Periksa koneksi.');
     }
 
     downloadImage(url) {
@@ -905,52 +1004,180 @@
       this.videoRaf = requestAnimationFrame(tick);
     }
 
-    renderVideoMP4() {
+    async renderVideoMP4() {
       const user = INITIAL_SEED_DATA.roles[this.currentRole];
       this.triggerHaptic('click');
       const progressDrawer = document.getElementById('video-render-progress-drawer');
       const progressBar = document.getElementById('video-render-bar');
       const progressText = document.getElementById('video-render-status-text');
+      const scriptInput = document.getElementById('video-script-input');
+      const scriptText = (scriptInput && scriptInput.value.trim()) ||
+        INITIAL_SEED_DATA.videoStoryboard.map((b) => b.script).join(' ');
 
       if (progressDrawer) progressDrawer.classList.remove('hidden');
+      if (progressBar) progressBar.style.width = '15%';
+      if (progressText) progressText.textContent = 'Menyiapkan TTS Audio & FFmpeg Remotion Pipeline...';
 
-      let pct = 0;
-      const interval = setInterval(() => {
-        pct += 12;
-        if (pct <= 100) {
-          if (progressBar) progressBar.style.width = `${pct}%`;
-          if (progressText) {
-            progressText.textContent = `Remotion Native Render (${user.videoResolution}): ${pct}% (Bingkai ${Math.floor((pct / 100) * 1800)}/1800)`;
-          }
-        } else {
-          clearInterval(interval);
-          setTimeout(() => {
-            if (progressDrawer) progressDrawer.classList.add('hidden');
-            this.showToast(`🎬 Video MP4 Selesai: Hermes Spatial Reel (${user.videoWatermark ? 'Watermarked' : 'Clean'})`);
-            this.vaultItems.unshift({
-              id: `vlt_vid_${Date.now()}`,
-              title: 'Hermes Spatial Reel (Render Baru)',
-              type: 'video',
-              thumb: 'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?w=400&q=80',
-              detail: `${user.videoResolution} • 30s • MP4 H.264`,
-              isFav: true
-            });
-            this.renderVaultScreen();
-          }, 800);
+      try {
+        if (!this.authToken) await this.syncAuthSession();
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.authToken) headers.Authorization = `Bearer ${this.authToken}`;
+
+        const resp = await fetch(`${this.apiBaseUrl}/video/render`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            title: scriptText.slice(0, 48),
+            scriptText,
+            speakerFemaleVoice: 'id-ID-GadisNeural',
+            durationSec: 15
+          })
+        });
+        const json = await resp.json();
+        if (!json?.success || !json?.data?.jobId) {
+          throw new Error(json?.error?.message || 'Gagal memulai render video');
         }
-      }, 350);
+        const jobId = json.data.jobId;
+
+        // Poll real backend render progress
+        const pollTimer = setInterval(async () => {
+          try {
+            const stResp = await fetch(`${this.apiBaseUrl}/video/status/${jobId}`, { headers });
+            const stJson = await stResp.json();
+            const d = stJson?.data;
+            if (!d) return;
+
+            if (progressBar) progressBar.style.width = `${d.progressPct || 40}%`;
+            if (progressText) {
+              const stageMap = {
+                synthesizing_audio: '🎙️ Mensintesis Suara Neural Indonesia...',
+                rendering_frames: '🎨 Mengomposisi Frame VisionOS Glass...',
+                encoding_mp4: '🎞️ Mengodekan Video MP4 H.264...',
+                completed: '✅ Render Selesai!'
+              };
+              progressText.textContent = `${stageMap[d.status] || d.status} (${d.progressPct}%)`;
+            }
+
+            if (d.status === 'completed') {
+              clearInterval(pollTimer);
+              const mp4Url = this.getMediaUrl(d.outputVideoUrl);
+              const realPlayer = document.getElementById('video-real-player');
+              if (realPlayer && mp4Url) {
+                realPlayer.src = mp4Url;
+                realPlayer.classList.remove('hidden');
+                realPlayer.play().catch(() => {});
+              }
+              setTimeout(() => {
+                if (progressDrawer) progressDrawer.classList.add('hidden');
+              }, 800);
+              this.showToast(`🎬 Video MP4 Nyata Selesai (${d.durationSec}s)!`);
+              this.vaultItems.unshift({
+                id: `vlt_vid_${Date.now()}`,
+                title: d.title || 'Hermes Spatial Video',
+                type: 'video',
+                thumb: 'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?w=400&q=80',
+                videoUrl: mp4Url,
+                detail: `MP4 H.264 • Suara Neural • ${mp4Url}`,
+                isFav: true
+              });
+              this.renderVaultScreen();
+            } else if (d.status === 'failed') {
+              clearInterval(pollTimer);
+              if (progressDrawer) progressDrawer.classList.add('hidden');
+              this.showToast('⚠️ Render video gagal di server.');
+            }
+          } catch {}
+        }, 800);
+      } catch (err) {
+        if (progressDrawer) progressDrawer.classList.add('hidden');
+        this.showToast(`⚠️ ${err.message || 'Gagal render video'}`);
+      }
     }
 
     // --- SCREEN 4: HANDS-FREE SPATIAL VOICE MODE ---
+    async sendVoiceQuery(explicitText = '') {
+      const input = document.getElementById('voice-text-input');
+      const text = (explicitText || (input ? input.value : '')).trim();
+      if (!text) return;
+      if (input && !explicitText) input.value = '';
+
+      this.setVoiceState('thinking');
+      this.voiceTranscript = `Anda: "${text}" — Memproses jawaban Hermes...`;
+      this.updateVoiceHUD();
+
+      try {
+        if (!this.authToken) await this.syncAuthSession();
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.authToken) headers.Authorization = `Bearer ${this.authToken}`;
+
+        const resp = await fetch(`${this.apiBaseUrl}/voice/converse`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ text, agentPersona: this.activeAgent })
+        });
+        const json = await resp.json();
+        if (json?.success && json?.data) {
+          const { replyText, audioUrl } = json.data;
+          this.setVoiceState('speaking');
+          this.voiceTranscript = replyText;
+          this.updateVoiceHUD();
+
+          const audioEl = document.getElementById('voice-real-audio');
+          if (audioEl && audioUrl) {
+            audioEl.src = this.getMediaUrl(audioUrl);
+            audioEl.onended = () => {
+              this.setVoiceState('idle');
+            };
+            audioEl.play().catch(() => {
+              setTimeout(() => this.setVoiceState('idle'), 3500);
+            });
+          } else {
+            setTimeout(() => this.setVoiceState('idle'), 3500);
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn('[Voice Error]', err);
+      }
+      this.setVoiceState('idle');
+      this.voiceTranscript = 'Maaf, gagal terhubung ke layanan suara Hermes.';
+      this.updateVoiceHUD();
+    }
+
     toggleVoiceInteraction() {
       this.triggerHaptic('click');
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (this.voiceState === 'idle') {
-        this.setVoiceState('listening');
-        this.voiceTranscript = 'Mendengarkan ucapan Anda... Silakan berbicara.';
-        this.updateVoiceHUD();
+        if (SpeechRec) {
+          this.setVoiceState('listening');
+          this.voiceTranscript = 'Mendengarkan suara Anda... Silakan bicara sekarang.';
+          this.updateVoiceHUD();
+          try {
+            const rec = new SpeechRec();
+            rec.lang = 'id-ID';
+            rec.interimResults = false;
+            rec.onresult = (ev) => {
+              const spoken = ev.results?.[0]?.[0]?.transcript || '';
+              if (spoken) this.sendVoiceQuery(spoken);
+              else this.setVoiceState('idle');
+            };
+            rec.onerror = () => {
+              this.setVoiceState('idle');
+              this.voiceTranscript = 'Mikrofon tidak diizinkan atau tidak tersedia. Gunakan kotak teks di bawah untuk bertanya.';
+              this.updateVoiceHUD();
+            };
+            rec.start();
+          } catch {
+            this.setVoiceState('idle');
+          }
+        } else {
+          this.setVoiceState('listening');
+          this.voiceTranscript = 'Browser ini tidak mendukung Web Speech Mic. Ketik pertanyaan Anda di bawah lalu tekan Kirim.';
+          this.updateVoiceHUD();
+        }
       } else {
         this.setVoiceState('idle');
-        this.voiceTranscript = 'Sesi suara dijeda. Ketuk tombol mic untuk melanjutkan.';
+        this.voiceTranscript = 'Sesi suara dijeda. Ketuk mikrofon atau ketik pertanyaan.';
         this.updateVoiceHUD();
       }
     }
@@ -1023,29 +1250,33 @@
       this.showToast('Item berhasil dihapus dari Vault.');
     }
 
-    testBackendConnection() {
-      this.triggerHaptic('click');
+    testBackendConnection(silent = false) {
+      if (!silent) this.triggerHaptic('click');
       const statusEl = document.getElementById('backend-ping-status');
+      const urlInput = document.getElementById('backend-url-input');
       if (statusEl) {
         statusEl.textContent = 'Menguji koneksi ke Hermes Bridge...';
         statusEl.className = 'text-xs text-sky-400 animate-pulse mt-1';
       }
 
-      fetch('/api/v1/health')
+      const start = performance.now();
+      const customBase = (urlInput && urlInput.value.trim().replace(/\/+$/, '')) || this.apiBaseUrl;
+      fetch(`${customBase}/health`)
         .then((r) => r.json())
         .then((data) => {
+          const ms = Math.max(1, Math.round(performance.now() - start));
           if (statusEl) {
-            statusEl.textContent = `🟢 Terhubung: ${data.data?.service || 'Hermes Bridge'} (Mode: ${data.data?.mode || 'hybrid'}) • Ping: 18ms`;
+            statusEl.textContent = `🟢 Terhubung: ${data.data?.service || 'Hermes Bridge'} • Live AI (${ms}ms)`;
             statusEl.className = 'text-xs text-emerald-400 font-medium mt-1';
           }
-          this.showToast('Koneksi Backend Bridge Aktif!');
+          if (!silent) this.showToast(`Koneksi Hermes Bridge Live OK (${ms}ms)!`);
         })
         .catch(() => {
           if (statusEl) {
-            statusEl.textContent = '🟢 Mode Demo Standalone Simulator Aktif (Fallback Lokal OK)';
-            statusEl.className = 'text-xs text-sky-400 font-medium mt-1';
+            statusEl.textContent = '🟡 Fallback Lokal Aktif (Bridge belum merespons)';
+            statusEl.className = 'text-xs text-amber-400 font-medium mt-1';
           }
-          this.showToast('Simulator berjalan dalam Mode Evaluasi Mandiri.');
+          if (!silent) this.showToast('Gagal ping server target.');
         });
     }
 

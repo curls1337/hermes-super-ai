@@ -20,7 +20,8 @@ import {
   logoutUseCase,
   renderVideoUseCase,
   streamChatUseCase,
-  updateSystemSettingsUseCase
+  updateSystemSettingsUseCase,
+  voiceConverseUseCase
 } from '../application/useCases.mjs';
 
 export function createApiRouter() {
@@ -95,7 +96,9 @@ export function createApiRouter() {
     res.flushHeaders?.();
 
     const abortController = new AbortController();
-    req.on('close', () => abortController.abort());
+    res.on('close', () => {
+      if (!res.writableEnded) abortController.abort();
+    });
 
     const writeEvent = (event, data) => {
       if (abortController.signal.aborted) return;
@@ -116,8 +119,8 @@ export function createApiRouter() {
     }
   });
 
-  router.post('/image/generate', requireAuth, roleRateLimiter, requirePermission('image:generate'), (req, res) => {
-    const result = generateImageUseCase({ user: req.user, body: req.body });
+  router.post('/image/generate', requireAuth, roleRateLimiter, requirePermission('image:generate'), async (req, res) => {
+    const result = await generateImageUseCase({ user: req.user, body: req.body });
     if (result.error) {
       return res.status(result.status).json({ success: false, error: result.error });
     }
@@ -180,6 +183,14 @@ export function createApiRouter() {
         }
       }
     });
+  });
+
+  router.post('/voice/converse', requireAuth, roleRateLimiter, requirePermission('voice:duplex'), async (req, res) => {
+    const result = await voiceConverseUseCase({ user: req.user, body: req.body });
+    if (result.error) {
+      return res.status(result.status).json({ success: false, error: result.error });
+    }
+    return res.status(result.status).json({ success: true, data: result.data });
   });
 
   router.get('/vault/items', requireAuth, (req, res) => {

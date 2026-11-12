@@ -7,7 +7,7 @@ class HermesApiClient {
   String? authToken;
 
   HermesApiClient({
-    this.baseUrl = 'http://localhost:3000/api/v1',
+    this.baseUrl = 'https://webui.5nod.com/staging/hermes-super-ai/api/v1',
     this.authToken,
   });
 

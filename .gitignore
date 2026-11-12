@@ -16,6 +16,11 @@ build/
 .env
 *.local
 
+# Generated runtime media
+storage/
+database/hermes_vault.db-wal
+database/hermes_vault.db-shm
+
 # System files
 .DS_Store
 Thumbs.db

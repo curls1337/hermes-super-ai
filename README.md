@@ -69,8 +69,9 @@ hermes-super-ai/
 │   │   ├── core/               # tokens.dart, app_state.dart
 │   │   ├── services/           # api_client.dart
 │   │   ├── widgets/            # spatial_glass_card.dart, role_switcher_pill.dart, orb_visualizer.dart
-│   │   └── screens/            # 6 layar (Login, Chat, Image Studio, Video Lab, Voice Mode, Vault)
-│   └── test/widget_test.dart
+│   │   └── screens/            # login_screen.dart, chat_screen.dart, image_studio_screen.dart,
+│   │                           # video_lab_screen.dart, voice_mode_screen.dart, gallery_vault_screen.dart
+│   └── test/widget_test.dart   # RBAC & Navigation Smoke/Widget Tests
 └── .github/workflows/
     └── build-mobile.yml        # GitHub Actions CI/CD (Build APK & Unsigned IPA -> Releases)
 ```

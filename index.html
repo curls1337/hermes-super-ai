@@ -419,7 +419,9 @@
             </div>
 
             <!-- Remotion Canvas Interactive Player Preview -->
-            <div class="relative w-full h-56 rounded-2xl overflow-hidden border border-white/20 bg-slate-950 shadow-2xl flex flex-col justify-between p-3">
+            <div id="video-canvas-container" class="relative w-full h-56 rounded-2xl overflow-hidden border border-white/20 bg-slate-950 shadow-2xl flex flex-col justify-between p-3">
+              <!-- Real Video Player Element (Plays live rendered MP4) -->
+              <video id="video-real-player" controls playsinline class="hidden absolute inset-0 w-full h-full object-contain rounded-2xl bg-black z-30"></video>
               <div class="absolute inset-0 bg-gradient-to-tr from-sky-900/40 via-slate-950 to-indigo-950/50"></div>
 
               <!-- Top Player Meta -->
@@ -471,6 +473,15 @@
               </div>
             </div>
 
+            <!-- Custom Video Script Input -->
+            <div class="glass-spatial rounded-2xl p-3 border border-white/15 space-y-2">
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="font-bold text-slate-200">Naskah Video (Live AI + TTS)</span>
+                <span class="text-sky-400 font-mono">Fola / Gadis Neural</span>
+              </div>
+              <textarea id="video-script-input" rows="2" placeholder="Ketik naskah atau topik video Anda... (contoh: Jelaskan cara kerja AI di masa depan dalam 2 kalimat)" class="w-full bg-slate-950/70 border border-white/15 rounded-xl p-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-sky-400/50 resize-none"></textarea>
+            </div>
+
             <!-- Story Beat Sequencer List -->
             <div>
               <div class="text-xs font-bold text-slate-200 mb-2">Storyboard Beats (Dual Speaker)</div>
@@ -505,12 +516,14 @@
               </div>
 
               <!-- Voice Control Bottom Dock -->
-              <div class="flex items-center justify-center space-x-3">
-                <button onclick="window.simulator.toggleVoiceInteraction()" class="w-12 h-12 rounded-full bg-gradient-to-tr from-sky-400 to-indigo-500 hover:from-sky-300 hover:to-indigo-400 text-slate-950 font-bold flex items-center justify-center text-lg shadow-[0_0_24px_rgba(56,189,248,0.4)] active:scale-95 transition-all">
-                  🎙️
+              <audio id="voice-real-audio" class="hidden"></audio>
+              <div class="flex items-center space-x-2">
+                <input id="voice-text-input" type="text" placeholder="Ketik atau klik Mic untuk bicara..." class="flex-1 bg-slate-950/70 border border-white/15 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none" onkeydown="if(event.key==='Enter')window.simulator.sendVoiceQuery()" />
+                <button onclick="window.simulator.sendVoiceQuery()" class="px-3 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-xs font-semibold text-sky-300">
+                  Kirim
                 </button>
-                <button onclick="window.simulator.setVoiceState('thinking')" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300">
-                  Simulasi AI Jawab
+                <button onclick="window.simulator.toggleVoiceInteraction()" class="w-11 h-11 rounded-full bg-gradient-to-tr from-sky-400 to-indigo-500 hover:from-sky-300 hover:to-indigo-400 text-slate-950 font-bold flex items-center justify-center text-lg shadow-[0_0_24px_rgba(56,189,248,0.4)] active:scale-95 transition-all shrink-0">
+                  🎙️
                 </button>
               </div>
             </div>
@@ -564,14 +577,14 @@
               <input
                 id="backend-url-input"
                 type="text"
-                value="http://localhost:3000/api/v1"
+                value="https://webui.5nod.com/staging/hermes-super-ai/api/v1"
                 class="w-full bg-slate-950/80 border border-white/15 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none"
               />
               <div class="flex items-center justify-between">
                 <button onclick="window.simulator.testBackendConnection()" class="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-xs font-semibold text-sky-300">
                   Uji Koneksi Server
                 </button>
-                <span id="backend-ping-status" class="text-xs text-slate-400">Status: Siap</span>
+                <span id="backend-ping-status" class="text-xs text-emerald-400">🟢 Live Bridge Aktif</span>
               </div>
             </div>
 
@@ -585,10 +598,10 @@
                 Kompilasi otomatis via GitHub Actions (Zero-Local-Build):
               </p>
               <div class="flex items-center space-x-2 pt-1">
-                <a href="https://github.com/devcurl/hermes-super-ai/releases" target="_blank" rel="noopener" class="flex-1 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-center text-xs font-semibold text-sky-300">
+                <a href="https://github.com/curls1337/hermes-super-ai/releases" target="_blank" rel="noopener" class="flex-1 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-center text-xs font-semibold text-sky-300">
                   Unduh .IPA (iOS)
                 </a>
-                <a href="https://github.com/devcurl/hermes-super-ai/releases" target="_blank" rel="noopener" class="flex-1 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-center text-xs font-semibold text-emerald-300">
+                <a href="https://github.com/curls1337/hermes-super-ai/releases" target="_blank" rel="noopener" class="flex-1 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-center text-xs font-semibold text-emerald-300">
                   Unduh .APK (Android)
                 </a>
               </div>

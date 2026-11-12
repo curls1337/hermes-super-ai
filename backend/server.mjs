@@ -34,6 +34,8 @@ export function createApp() {
 
   // Serve interactive simulator & static assets cleanly when run standalone
   app.use('/assets', express.static(path.join(config.projectRoot, 'assets')));
+  app.use('/static/renders', express.static(path.join(config.projectRoot, 'storage', 'renders')));
+  app.use('/static/media', express.static(path.join(config.projectRoot, 'storage', 'media')));
   app.use(express.static(config.projectRoot));
 
   app.use((err, _req, res, _next) => {

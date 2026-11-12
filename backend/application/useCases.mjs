@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -233,42 +236,67 @@ export async function streamChatUseCase({ user, body, writeEvent, signal }) {
     ];
   }
 
-  // Try forwarding to live HERMES_API_ENDPOINT if configured and responsive
-  let fullReply = '';
-  let usedLiveGateway = false;
+async function callLiveAi(chosenAgent, messages) {
+  const systemPrompt = `You are ${chosenAgent.name} (${chosenAgent.role}). ${chosenAgent.description}. Jawab dalam bahasa Indonesia yang jelas, informatif, dan membantu (kecuali user meminta bahasa lain).`;
+  const payloadMessages = [
+    { role: 'system', content: systemPrompt },
+    ...messages.slice(-8)
+  ];
+
+  const targets = [];
   if (config.hermesApiEndpoint && config.hermesApiSecretToken && !config.hermesApiSecretToken.includes('secret')) {
+    targets.push({
+      url: `${config.hermesApiEndpoint}/v1/chat/completions`,
+      key: config.hermesApiSecretToken,
+      model: config.defaultChatModel || 'default',
+      timeoutMs: 35000
+    });
+  }
+  if (config.ninerouteApiEndpoint && config.ninerouteApiKey) {
+    targets.push({
+      url: `${config.ninerouteApiEndpoint}/v1/chat/completions`,
+      key: config.ninerouteApiKey,
+      model: 'zd/claude-haiku-4-5',
+      timeoutMs: 25000
+    });
+  }
+
+  for (const t of targets) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 1800);
-      const upstream = await fetch(`${config.hermesApiEndpoint}/v1/chat/completions`, {
+      const timer = setTimeout(() => controller.abort(), t.timeoutMs);
+      const upstream = await fetch(t.url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${config.hermesApiSecretToken}`
+          Authorization: 'Bearer ' + t.key
         },
         body: JSON.stringify({
-          model: config.defaultChatModel,
-          messages: [
-            { role: 'system', content: `You are ${chosenAgent.name} (${chosenAgent.role}). ${chosenAgent.description}` },
-            ...messages.slice(-8)
-          ],
+          model: t.model,
+          messages: payloadMessages,
           stream: false
         }),
-        signal: AbortSignal.any ? AbortSignal.any([controller.signal, signal]) : controller.signal
+        signal: controller.signal
       });
-      clearTimeout(timeout);
+      clearTimeout(timer);
       if (upstream.ok) {
         const json = await upstream.json();
         const text = json?.choices?.[0]?.message?.content;
-        if (text) {
-          fullReply = text;
-          usedLiveGateway = true;
+        if (text && String(text).trim()) {
+          return { text: String(text).trim(), usedLiveGateway: true };
         }
       }
     } catch {
-      // Fall back gracefully to deterministic local bridge stream
+      // try next target
     }
   }
+  return { text: '', usedLiveGateway: false };
+}
+
+  // Try forwarding to live Hermes / 9route endpoint
+  const aiRes = await callLiveAi(chosenAgent, messages);
+  let fullReply = aiRes.text;
+  let usedLiveGateway = aiRes.usedLiveGateway;
 
   if (!fullReply) {
     fullReply = buildSpecialistReply(chosenAgent, lastUserMsg, citations.length > 0);
@@ -339,7 +367,7 @@ function buildSpecialistReply(agent, prompt, hasCitations) {
   return `Halo! Saya **${agent.name}**. Saya telah memproses permintaan Anda mengenai **"${prompt.slice(0, 80)}"**${citeMark}.\n\n- **Multimodal Ready:** Anda dapat melanjutkan obrolan, beralih ke **Image Studio** untuk visualisasi, atau **Video Lab** untuk render Remotion 60 FPS.\n- **Privasi Terjaga:** Seluruh hasil tersimpan di Vault lokal dengan status enkripsi aktif.`;
 }
 
-export function generateImageUseCase({ user, body }) {
+export async function generateImageUseCase({ user, body }) {
   const {
     prompt = '',
     negativePrompt = '',
@@ -354,18 +382,41 @@ export function generateImageUseCase({ user, body }) {
   }
 
   const ratioMap = {
-    '1:1': '1024x1024',
-    '16:9': '1280x720',
-    '9:16': '720x1280',
-    '4:3': '1024x768'
+    '1:1': [1024, 1024],
+    '16:9': [1280, 720],
+    '9:16': [720, 1280],
+    '4:3': [1024, 768]
   };
-  const resolution = ratioMap[aspectRatio] || '1024x1024';
+  const [width, height] = ratioMap[aspectRatio] || [1024, 1024];
+  const resolution = `${width}x${height}`;
   const resolvedSeed = Number.isFinite(Number(seed)) && Number(seed) > 0
     ? Number(seed)
     : Math.floor(100000 + Math.random() * 899999);
 
   const id = `img_${crypto.randomUUID()}`;
-  const imageUrl = `/api/v1/image/preview/${id}.svg?ratio=${encodeURIComponent(aspectRatio)}&seed=${resolvedSeed}`;
+  let imageUrl = `api/v1/image/preview/${id}.svg?ratio=${encodeURIComponent(aspectRatio)}&seed=${resolvedSeed}`;
+
+  // Fetch real AI-generated image from Pollinations.ai and save locally
+  try {
+    const mediaDir = path.join(config.projectRoot, 'storage', 'media');
+    fs.mkdirSync(mediaDir, { recursive: true });
+    const styledPrompt = `${cleanPrompt}, ${stylePreset.replace(/_/g, ' ')}, ultra detailed, high aesthetic`;
+    const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(styledPrompt)}?width=${width}&height=${height}&seed=${resolvedSeed}&nologo=true`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 16000);
+    const resp = await fetch(pollUrl, { signal: controller.signal });
+    clearTimeout(timer);
+    if (resp.ok) {
+      const buf = Buffer.from(await resp.arrayBuffer());
+      if (buf.length > 2048) {
+        const outPath = path.join(mediaDir, `${id}.jpg`);
+        fs.writeFileSync(outPath, buf);
+        imageUrl = `static/media/${id}.jpg`;
+      }
+    }
+  } catch {
+    // Graceful fallback to procedural VisionOS SVG
+  }
 
   db.run(
     `INSERT INTO image_generations (id, user_id, prompt, negative_prompt, aspect_ratio, style_preset, image_url, resolution, seed)
@@ -392,14 +443,19 @@ export function generateImageUseCase({ user, body }) {
   };
 }
 
+function resolvePythonBin() {
+  const venvPy = '/home/devcurl/.hermes/installs/179dd995bc67aaca/environments/151fcf8e6e574c3d8cd9cc1496bb333b/venv/bin/python3';
+  return fs.existsSync(venvPy) ? venvPy : 'python3';
+}
+
 export function renderVideoUseCase({ user, body }) {
   const policy = getRolePolicy(user.roleSlug);
   const {
     title = 'Hermes Spatial Reel',
     scriptText = '',
     templateName = 'cinematic_spatial_glass',
-    speakerMaleVoice = config.ttsDefaultVoiceMale,
-    speakerFemaleVoice = config.ttsDefaultVoiceFemale,
+    speakerMaleVoice = 'id-ID-ArdiNeural',
+    speakerFemaleVoice = 'id-ID-GadisNeural',
     durationSec = 15
   } = body || {};
 
@@ -409,11 +465,13 @@ export function renderVideoUseCase({ user, body }) {
 
   const clampedDuration = Math.min(Number(durationSec) || 15, policy.maxVideoDurationSec);
   const jobId = `job_${crypto.randomUUID()}`;
-  const outputVideoUrl = `/static/renders/${jobId}.mp4`;
+  const rendersDir = path.join(config.projectRoot, 'storage', 'renders');
+  fs.mkdirSync(rendersDir, { recursive: true });
+  const outputVideoUrl = `static/renders/${jobId}.mp4`;
 
   db.run(
     `INSERT INTO video_remotion_jobs (id, user_id, title, script_text, template_name, speaker_male_voice, speaker_female_voice, status, progress_pct, output_video_url, duration_sec)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', 10, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'synthesizing_audio', 20, ?, ?)`,
     [
       jobId,
       user.id,
@@ -427,6 +485,22 @@ export function renderVideoUseCase({ user, body }) {
     ]
   );
 
+  const chosenVoice = String(speakerFemaleVoice || speakerMaleVoice || 'id-ID-GadisNeural');
+  const scriptPath = path.join(config.projectRoot, 'backend', 'render_media.py');
+  const child = spawn(
+    resolvePythonBin(),
+    [
+      scriptPath,
+      '--mode', 'video',
+      '--id', jobId,
+      '--title', String(title).slice(0, 80),
+      '--text', String(scriptText).slice(0, 800),
+      '--voice', chosenVoice.includes('Neural') ? chosenVoice : 'id-ID-GadisNeural',
+      '--out-dir', rendersDir
+    ],
+    { stdio: ['ignore', 'pipe', 'pipe'] }
+  );
+
   MEMORY_VIDEO_JOBS.set(jobId, {
     createdAt: Date.now(),
     userId: user.id,
@@ -434,15 +508,44 @@ export function renderVideoUseCase({ user, body }) {
     watermark: policy.videoWatermark,
     resolution: policy.videoResolution,
     durationSec: clampedDuration,
-    outputVideoUrl
+    outputVideoUrl,
+    done: false,
+    failed: false
+  });
+
+  child.on('close', (code) => {
+    const job = MEMORY_VIDEO_JOBS.get(jobId);
+    const mp4Exists = fs.existsSync(path.join(rendersDir, `${jobId}.mp4`));
+    if (code === 0 && mp4Exists) {
+      if (job) job.done = true;
+      db.run(
+        `UPDATE video_remotion_jobs SET status = 'completed', progress_pct = 100, completed_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [jobId]
+      );
+      db.run(
+        `INSERT INTO vault_items (id, user_id, title, media_type, asset_url, thumbnail_url, metadata_json, is_favorite)
+         VALUES (?, ?, ?, 'video', ?, ?, ?, 0)`,
+        [
+          `vlt_${crypto.randomUUID()}`,
+          user.id,
+          String(title).slice(0, 48),
+          outputVideoUrl,
+          outputVideoUrl,
+          JSON.stringify({ resolution: policy.videoResolution, durationSec: clampedDuration, script: String(scriptText).slice(0, 120) })
+        ]
+      );
+    } else {
+      if (job) job.failed = true;
+      db.run(`UPDATE video_remotion_jobs SET status = 'failed', progress_pct = 0 WHERE id = ?`, [jobId]);
+    }
   });
 
   return {
     status: 202,
     data: {
       jobId,
-      status: 'queued',
-      progressPct: 10,
+      status: 'synthesizing_audio',
+      progressPct: 20,
       watermark: policy.videoWatermark,
       resolution: policy.videoResolution,
       durationSec: clampedDuration
@@ -461,27 +564,26 @@ export function getVideoStatusUseCase({ user, jobId }) {
   let progressPct = row.progress_pct;
 
   if (mem && status !== 'completed' && status !== 'failed') {
-    const elapsed = Date.now() - mem.createdAt;
-    if (elapsed < 1200) {
-      status = 'synthesizing_audio';
-      progressPct = 35;
-    } else if (elapsed < 2600) {
-      status = 'rendering_frames';
-      progressPct = 72;
-    } else if (elapsed < 3400) {
-      status = 'encoding_mp4';
-      progressPct = 92;
-    } else {
+    const mp4Exists = fs.existsSync(path.join(config.projectRoot, 'storage', 'renders', `${jobId}.mp4`));
+    if (mem.done || mp4Exists) {
       status = 'completed';
       progressPct = 100;
+    } else if (mem.failed) {
+      status = 'failed';
+      progressPct = 0;
+    } else {
+      const elapsed = Date.now() - mem.createdAt;
+      if (elapsed < 1500) {
+        status = 'synthesizing_audio';
+        progressPct = 35;
+      } else if (elapsed < 3500) {
+        status = 'rendering_frames';
+        progressPct = 65;
+      } else {
+        status = 'encoding_mp4';
+        progressPct = 88;
+      }
     }
-
-    db.run(
-      `UPDATE video_remotion_jobs
-       SET status = ?, progress_pct = ?, completed_at = CASE WHEN ? = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END
-       WHERE id = ?`,
-      [status, progressPct, status, jobId]
-    );
   }
 
   return {
@@ -497,6 +599,71 @@ export function getVideoStatusUseCase({ user, jobId }) {
       speakerFemaleVoice: row.speaker_female_voice
     }
   };
+}
+
+export async function voiceConverseUseCase({ user, body }) {
+  const text = String(body?.text || '').trim();
+  const agentPersona = String(body?.agentPersona || 'general');
+  if (!text) {
+    return { status: 400, error: { code: 'EMPTY_VOICE_TEXT', message: 'Pesan suara tidak boleh kosong.' } };
+  }
+  const chosenAgent = SPECIALIST_AGENTS.find((a) => a.id === agentPersona) || SPECIALIST_AGENTS[0];
+  let replyText = '';
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 25000);
+    const endpoint = config.ninerouteApiKey
+      ? `${config.ninerouteApiEndpoint}/v1/chat/completions`
+      : `${config.hermesApiEndpoint}/v1/chat/completions`;
+    const key = config.ninerouteApiKey || config.hermesApiSecretToken;
+    const model = config.ninerouteApiKey ? 'zd/claude-haiku-4-5' : config.defaultChatModel;
+    const upstream = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key },
+      body: JSON.stringify({
+        model,
+        stream: false,
+        messages: [
+          {
+            role: 'system',
+            content: `You are ${chosenAgent.name}. Jawab secara lisan dalam 1-3 kalimat singkat bahasa Indonesia yang natural (tanpa markdown, tanpa bullet points, cocok dibacakan asisten suara).`
+          },
+          { role: 'user', content: text }
+        ]
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    if (upstream.ok) {
+      const json = await upstream.json();
+      replyText = json?.choices?.[0]?.message?.content?.trim() || '';
+    }
+  } catch {}
+  if (!replyText) {
+    replyText = `Saya mendengar pesan Anda tentang ${text.slice(0, 50)}. Bagaimana saya bisa membantu lebih lanjut?`;
+  }
+  const cleanSpeech = replyText.replace(/[*_`#]/g, '');
+  const voiceId = `vox_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+  const mediaDir = path.join(config.projectRoot, 'storage', 'media');
+  fs.mkdirSync(mediaDir, { recursive: true });
+  const scriptPath = path.join(config.projectRoot, 'backend', 'render_media.py');
+  let audioUrl = '';
+  try {
+    await new Promise((resolve) => {
+      const child = spawn(
+        resolvePythonBin(),
+        [scriptPath, '--mode', 'voice', '--id', voiceId, '--text', cleanSpeech.slice(0, 500), '--voice', 'id-ID-GadisNeural', '--out-dir', mediaDir],
+        { stdio: 'ignore' }
+      );
+      child.on('close', (code) => {
+        if (code === 0 && fs.existsSync(path.join(mediaDir, `${voiceId}.mp3`))) {
+          audioUrl = `static/media/${voiceId}.mp3`;
+        }
+        resolve();
+      });
+    });
+  } catch {}
+  return { status: 200, data: { replyText: cleanSpeech, audioUrl } };
 }
 
 export function listVaultUseCase({ user, query }) {
